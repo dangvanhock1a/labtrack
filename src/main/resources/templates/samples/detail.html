@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${sample.code})}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<main class="container">
+	<div th:replace="~{fragments/layout :: flash}"></div>
+
+	<h1 class="h3 mb-3" th:text="|Mẫu ${sample.code}|"></h1>
+
+	<dl class="row">
+		<dt class="col-sm-3">Mã mẫu</dt>
+		<dd class="col-sm-9" th:text="${sample.code}"></dd>
+
+		<dt class="col-sm-3">Sản phẩm</dt>
+		<dd class="col-sm-9" th:text="${sample.productName}"></dd>
+
+		<dt class="col-sm-3">Số lô</dt>
+		<dd class="col-sm-9" th:text="${sample.batchNo}"></dd>
+
+		<dt class="col-sm-3">Loại mẫu</dt>
+		<dd class="col-sm-9" th:text="${sample.sampleType.label}"></dd>
+
+		<dt class="col-sm-3">Trạng thái</dt>
+		<dd class="col-sm-9" th:text="${sample.status.label}"></dd>
+
+		<dt class="col-sm-3">Thời điểm nhận</dt>
+		<dd class="col-sm-9" th:text="${#temporals.format(sample.receivedAt, 'dd/MM/yyyy HH:mm')}"></dd>
+
+		<dt class="col-sm-3">Hạn trả kết quả</dt>
+		<dd class="col-sm-9" th:text="${#temporals.format(sample.dueDate, 'dd/MM/yyyy')}"></dd>
+
+		<dt class="col-sm-3">Người đăng ký</dt>
+		<dd class="col-sm-9" th:text="${sample.createdBy}"></dd>
+	</dl>
+
+	<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại danh sách</a>
+</main>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

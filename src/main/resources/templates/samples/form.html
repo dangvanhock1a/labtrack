@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Đăng ký mẫu')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<main class="container" style="max-width: 720px">
+	<h1 class="h3 mb-3">Đăng ký mẫu</h1>
+
+	<form th:action="@{/samples}" th:object="${sampleForm}" method="post" novalidate>
+		<div class="alert alert-danger" role="alert" th:if="${#fields.hasGlobalErrors()}">
+			<p class="mb-0" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></p>
+		</div>
+
+		<div class="mb-3">
+			<label for="productName" class="form-label">Tên sản phẩm</label>
+			<input type="text" th:field="*{productName}" class="form-control" th:errorclass="is-invalid"
+				   maxlength="200">
+			<div class="invalid-feedback" th:errors="*{productName}"></div>
+		</div>
+
+		<div class="mb-3">
+			<label for="batchNo" class="form-label">Số lô</label>
+			<input type="text" th:field="*{batchNo}" class="form-control" th:errorclass="is-invalid"
+				   maxlength="50">
+			<div class="invalid-feedback" th:errors="*{batchNo}"></div>
+		</div>
+
+		<div class="mb-3">
+			<label for="sampleType" class="form-label">Loại mẫu</label>
+			<select th:field="*{sampleType}" class="form-select" th:errorclass="is-invalid">
+				<option value="">-- Chọn loại mẫu --</option>
+				<option th:each="t : ${sampleTypes}" th:value="${t}" th:text="${t.label}"></option>
+			</select>
+			<div class="invalid-feedback" th:errors="*{sampleType}"></div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-6 mb-3">
+				<label for="receivedAt" class="form-label">Thời điểm nhận</label>
+				<input type="datetime-local" step="60" th:field="*{receivedAt}" class="form-control"
+					   th:errorclass="is-invalid">
+				<div class="invalid-feedback" th:errors="*{receivedAt}"></div>
+			</div>
+			<div class="col-sm-6 mb-3">
+				<label for="dueDate" class="form-label">Hạn trả kết quả</label>
+				<input type="date" th:field="*{dueDate}" class="form-control" th:errorclass="is-invalid">
+				<div class="invalid-feedback" th:errors="*{dueDate}"></div>
+			</div>
+		</div>
+
+		<button type="submit" class="btn btn-primary">Đăng ký</button>
+		<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại</a>
+	</form>
+</main>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

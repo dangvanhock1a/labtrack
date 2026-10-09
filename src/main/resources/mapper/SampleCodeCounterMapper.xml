@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pharmalab.labtrack.persistence.SampleCodeCounterMapper">
+
+	<!-- INSERT ... RETURNING đặt trong <select> để lấy giá trị trả về. flushCache bắt buộc:
+	     nếu không, gọi lần 2 cùng năm trong một transaction sẽ nhận lại số cũ từ cache. -->
+	<select id="nextNumber" resultType="int" flushCache="true" useCache="false">
+		INSERT INTO sample_code_counter (year, last_no)
+		VALUES (#{year}, 1)
+		ON CONFLICT (year) DO UPDATE SET last_no = sample_code_counter.last_no + 1
+		RETURNING last_no
+	</select>
+
+</mapper>
