@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${sample.code})}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<main class="container">
+	<div th:replace="~{fragments/layout :: flash}"></div>
+
+	<h1 class="h3 mb-3" th:text="|Mẫu ${sample.code}|"></h1>
+
+	<dl class="row">
+		<dt class="col-sm-3">Mã mẫu</dt>
+		<dd class="col-sm-9" th:text="${sample.code}"></dd>
+
+		<dt class="col-sm-3">Sản phẩm</dt>
+		<dd class="col-sm-9" th:text="${sample.productName}"></dd>
+
+		<dt class="col-sm-3">Số lô</dt>
+		<dd class="col-sm-9" th:text="${sample.batchNo}"></dd>
+
+		<dt class="col-sm-3">Loại mẫu</dt>
+		<dd class="col-sm-9" th:text="${sample.sampleType.label}"></dd>
+
+		<dt class="col-sm-3">Trạng thái</dt>
+		<dd class="col-sm-9">
+			<span th:replace="~{fragments/layout :: statusBadge(${sample.status})}"></span>
+		</dd>
+
+		<dt class="col-sm-3">Thời điểm nhận</dt>
+		<dd class="col-sm-9" th:text="${#temporals.format(sample.receivedAt, 'dd/MM/yyyy HH:mm')}"></dd>
+
+		<dt class="col-sm-3">Hạn trả kết quả</dt>
+		<dd class="col-sm-9" th:text="${#temporals.format(sample.dueDate, 'dd/MM/yyyy')}"></dd>
+
+		<dt class="col-sm-3">Người đăng ký</dt>
+		<dd class="col-sm-9" th:text="${sample.createdBy}"></dd>
+	</dl>
+
+	<div class="d-flex flex-wrap gap-2">
+		<!-- BR-03: chỉ mẫu Đã tiếp nhận mới nhận vào kiểm nghiệm được. -->
+		<form th:if="${sample.status.name() == 'RECEIVED'}" method="post"
+			  th:action="@{/samples/{id}/start(id=${sample.id})}">
+			<button type="submit" class="btn btn-primary">Nhận kiểm nghiệm</button>
+		</form>
+
+		<!-- BR-05: mẫu đã kết thúc (Hoàn thành, Đã hủy) thì không hủy được nữa. -->
+		<button type="button" class="btn btn-outline-danger" th:unless="${sample.status.terminal}"
+				data-bs-toggle="modal" data-bs-target="#cancelModal">Hủy mẫu</button>
+
+		<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại danh sách</a>
+	</div>
+
+	<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalTitle" aria-hidden="true"
+		 th:unless="${sample.status.terminal}">
+		<div class="modal-dialog modal-dialog-centered">
+			<form class="modal-content" method="post" th:action="@{/samples/{id}/cancel(id=${sample.id})}">
+				<div class="modal-header">
+					<h2 class="modal-title h5" id="cancelModalTitle" th:text="|Hủy mẫu ${sample.code}|"></h2>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+				</div>
+				<div class="modal-body">
+					<label for="reason" class="form-label">Lý do hủy (5–500 ký tự)</label>
+					<textarea class="form-control" id="reason" name="reason" rows="3"
+							  minlength="5" maxlength="500" required></textarea>
+					<div class="form-text">Lý do được lưu cùng lần đổi trạng thái và không sửa được sau đó.</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+					<button type="submit" class="btn btn-danger">Hủy mẫu</button>
+				</div>
+			</form>
+		</div>
+	</div>
+</main>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+<script>
+	// Thuộc tính autofocus không có tác dụng trong modal vì lúc tải trang ô nhập còn đang ẩn.
+	document.getElementById('cancelModal')?.addEventListener('shown.bs.modal', function () {
+		document.getElementById('reason').focus();
+	});
+</script>
+</body>
+</html>

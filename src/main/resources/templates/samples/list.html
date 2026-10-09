@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Danh sách mẫu')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<main class="container">
+	<div th:replace="~{fragments/layout :: flash}"></div>
+
+	<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+		<h1 class="h3 mb-0">Danh sách mẫu</h1>
+		<a class="btn btn-primary" th:href="@{/samples/new}">Đăng ký mẫu</a>
+	</div>
+
+	<p class="text-body-secondary" th:if="${#lists.isEmpty(samples)}">Chưa có mẫu nào.</p>
+
+	<div class="table-responsive" th:unless="${#lists.isEmpty(samples)}">
+		<table class="table table-hover align-middle">
+			<thead>
+			<tr>
+				<th scope="col">Mã mẫu</th>
+				<th scope="col">Sản phẩm</th>
+				<th scope="col">Số lô</th>
+				<th scope="col">Loại mẫu</th>
+				<th scope="col" class="text-center">Trạng thái</th>
+				<th scope="col">Thời điểm nhận</th>
+				<th scope="col">Hạn trả</th>
+			</tr>
+			</thead>
+			<tbody>
+			<tr th:each="s : ${samples}">
+				<td><a th:href="@{/samples/{id}(id=${s.id})}" th:text="${s.code}"></a></td>
+				<td th:text="${s.productName}"></td>
+				<td th:text="${s.batchNo}"></td>
+				<td th:text="${s.sampleType.label}"></td>
+				<td class="text-center" th:text="${s.status.label}"></td>
+				<td th:text="${#temporals.format(s.receivedAt, 'dd/MM/yyyy HH:mm')}"></td>
+				<td th:text="${#temporals.format(s.dueDate, 'dd/MM/yyyy')}"></td>
+			</tr>
+			</tbody>
+		</table>
+	</div>
+</main>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

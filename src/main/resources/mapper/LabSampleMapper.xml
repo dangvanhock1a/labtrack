@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pharmalab.labtrack.persistence.LabSampleMapper">
+
+	<sql id="columns">
+		id, code, product_name, batch_no, sample_type, status,
+		received_at, due_date, created_by, created_at, updated_at
+	</sql>
+
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+		INSERT INTO lab_sample (code, product_name, batch_no, sample_type, status,
+		                        received_at, due_date, created_by)
+		VALUES (#{code}, #{productName}, #{batchNo}, #{sampleType}, #{status},
+		        #{receivedAt}, #{dueDate}, #{createdBy})
+	</insert>
+
+	<select id="findById" resultType="LabSample">
+		SELECT <include refid="columns"/>
+		FROM lab_sample
+		WHERE id = #{id}
+	</select>
+
+	<select id="findAll" resultType="LabSample">
+		SELECT <include refid="columns"/>
+		FROM lab_sample
+		ORDER BY received_at DESC, id DESC
+	</select>
+
+	<!--
+		BR-03: điều kiện status = trạng thái cũ làm cho câu lệnh chỉ khớp khi mẫu chưa bị ai đổi
+		trạng thái. Người bấm sau cập nhật 0 dòng, tầng nghiệp vụ biến nó thành CONCURRENT_UPDATE.
+	-->
+	<update id="updateStatus">
+		UPDATE lab_sample
+		SET status = #{toStatus}, updated_at = #{changedAt}
+		WHERE id = #{sampleId}
+		  AND status = #{fromStatus}
+	</update>
+
+</mapper>
