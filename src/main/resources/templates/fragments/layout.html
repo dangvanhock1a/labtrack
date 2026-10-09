@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:text="|${title} · LabTrack|">LabTrack</title>
+	<link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/css/bootstrap.min.css}">
+</head>
+<body>
+
+<nav th:fragment="navbar" class="navbar navbar-expand bg-primary mb-4" data-bs-theme="dark">
+	<div class="container flex-wrap">
+		<a class="navbar-brand" th:href="@{/samples}">LabTrack</a>
+		<div class="navbar-nav">
+			<a class="nav-link" th:href="@{/samples}">Danh sách mẫu</a>
+			<a class="nav-link" th:href="@{/samples/new}">Đăng ký mẫu</a>
+		</div>
+	</div>
+</nav>
+
+<th:block th:fragment="flash">
+	<div th:if="${message}" class="alert alert-success" role="status" th:text="${message}"></div>
+	<div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+</th:block>
+
+<!-- Nhãn trạng thái mẫu (BR-03): màu đi theo bước trong quy trình, không phải theo mức độ lỗi. -->
+<span th:fragment="statusBadge(status)" class="badge"
+	  th:with="tones=${ {RECEIVED: 'text-bg-info',
+						 IN_TESTING: 'text-bg-primary',
+						 COMPLETED: 'text-bg-success',
+						 CANCELLED: 'text-bg-secondary'} }"
+	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Đã tiếp nhận</span>
+
+<th:block th:fragment="scripts">
+	<script th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>
+</th:block>
+
+</body>
+</html>

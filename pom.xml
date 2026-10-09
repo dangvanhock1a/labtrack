@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
+		<webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -49,6 +51,16 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.mybatis.spring.boot</groupId>
+			<artifactId>mybatis-spring-boot-starter</artifactId>
+			<version>${mybatis-spring-boot.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>bootstrap</artifactId>
+			<version>${webjars-bootstrap.version}</version>
 		</dependency>
 
 		<dependency>
