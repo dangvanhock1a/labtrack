@@ -80,6 +80,18 @@ public class LabSampleService {
 		return sampleMapper.findById(id).map(this::toClockZone);
 	}
 
+	/** Nhận mẫu vào kiểm nghiệm: Đã tiếp nhận → Đang kiểm nghiệm (BR-03). */
+	@Transactional
+	public LabSample startTesting(long id, String actor) {
+		throw new UnsupportedOperationException("Chưa implement BR-03");
+	}
+
+	/** Hủy mẫu chưa kết thúc, bắt buộc lý do 5–500 ký tự sau khi cắt khoảng trắng (BR-03, BR-05). */
+	@Transactional
+	public LabSample cancel(long id, String reason, String actor) {
+		throw new UnsupportedOperationException("Chưa implement BR-05");
+	}
+
 	private LocalDateTime now() {
 		return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MINUTES);
 	}

@@ -18,4 +18,14 @@ public enum SampleStatus {
 		return label;
 	}
 
+	/** Có được chuyển từ trạng thái này sang {@code target} không (BR-03). */
+	public boolean canTransitionTo(SampleStatus target) {
+		throw new UnsupportedOperationException("Chưa implement BR-03");
+	}
+
+	/** Hoàn thành và Đã hủy là trạng thái kết thúc (BR-03). */
+	public boolean isTerminal() {
+		throw new UnsupportedOperationException("Chưa implement BR-03");
+	}
+
 }
