@@ -18,7 +18,18 @@
 	</div>
 </nav>
 
-<div th:fragment="flash" th:if="${message}" class="alert alert-success" role="status" th:text="${message}"></div>
+<th:block th:fragment="flash">
+	<div th:if="${message}" class="alert alert-success" role="status" th:text="${message}"></div>
+	<div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+</th:block>
+
+<!-- Nhãn trạng thái mẫu (BR-03): màu đi theo bước trong quy trình, không phải theo mức độ lỗi. -->
+<span th:fragment="statusBadge(status)" class="badge"
+	  th:with="tones=${ {RECEIVED: 'text-bg-info',
+						 IN_TESTING: 'text-bg-primary',
+						 COMPLETED: 'text-bg-success',
+						 CANCELLED: 'text-bg-secondary'} }"
+	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Đã tiếp nhận</span>
 
 <th:block th:fragment="scripts">
 	<script th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>

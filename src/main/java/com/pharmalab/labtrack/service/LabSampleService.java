@@ -13,12 +13,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
+import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 
 @Service
 public class LabSampleService {
 
 	static final int DEFAULT_DUE_DAYS = 7;
+
+	static final int MIN_REASON_LENGTH = 5;
+
+	static final int MAX_REASON_LENGTH = 500;
 
 	private final LabSampleMapper sampleMapper;
 
@@ -83,13 +88,43 @@ public class LabSampleService {
 	/** Nhận mẫu vào kiểm nghiệm: Đã tiếp nhận → Đang kiểm nghiệm (BR-03). */
 	@Transactional
 	public LabSample startTesting(long id, String actor) {
-		throw new UnsupportedOperationException("Chưa implement BR-03");
+		return changeStatus(id, SampleStatus.IN_TESTING, null, actor);
 	}
 
-	/** Hủy mẫu chưa kết thúc, bắt buộc lý do 5–500 ký tự sau khi cắt khoảng trắng (BR-03, BR-05). */
+	/**
+	 * Hủy mẫu chưa kết thúc, bắt buộc lý do 5–500 ký tự sau khi cắt khoảng trắng (BR-03, BR-05).
+	 * Lý do được kiểm tra trước khi đọc mẫu: nó không phụ thuộc dữ liệu trong CSDL.
+	 */
 	@Transactional
 	public LabSample cancel(long id, String reason, String actor) {
-		throw new UnsupportedOperationException("Chưa implement BR-05");
+		String trimmedReason = (reason != null) ? reason.trim() : "";
+		if (trimmedReason.length() < MIN_REASON_LENGTH || trimmedReason.length() > MAX_REASON_LENGTH) {
+			throw new BusinessException("REASON_REQUIRED", "reason", "Lý do phải dài từ 5 đến 500 ký tự");
+		}
+		return changeStatus(id, SampleStatus.CANCELLED, trimmedReason, actor);
+	}
+
+	/**
+	 * Đổi trạng thái một mẫu (BR-03). Bảng chuyển trong {@link SampleStatus} chặn trước để báo
+	 * lỗi rõ ràng; câu UPDATE kèm trạng thái cũ chặn lần nữa, nên khi hai người bấm cùng lúc chỉ
+	 * một người đổi được, người còn lại cập nhật 0 dòng và được yêu cầu tải lại trang.
+	 */
+	private LabSample changeStatus(long id, SampleStatus toStatus, String reason, String actor) {
+		LabSample sample = findById(id)
+			.orElseThrow(() -> new BusinessException("SAMPLE_NOT_FOUND", null, "Không tìm thấy mẫu"));
+		SampleStatus fromStatus = sample.getStatus();
+		if (!fromStatus.canTransitionTo(toStatus)) {
+			throw new InvalidStatusTransitionException(fromStatus, toStatus);
+		}
+		StatusChange change = new StatusChange(id, fromStatus, toStatus, reason, actor,
+				OffsetDateTime.now(clock));
+		if (sampleMapper.updateStatus(change) == 0) {
+			throw new BusinessException("CONCURRENT_UPDATE", null,
+					"Mẫu vừa được người khác cập nhật, hãy tải lại trang");
+		}
+		sample.setStatus(toStatus);
+		sample.setUpdatedAt(change.changedAt());
+		return sample;
 	}
 
 	private LocalDateTime now() {
