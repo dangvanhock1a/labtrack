@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+	<title th:text="${sample.code} + ' · LabTrack'">Chi tiết mẫu · LabTrack</title>
+</head>
+<body>
+<main th:object="${sample}">
+	<nav aria-label="breadcrumb">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a th:href="@{/samples}">Danh sách mẫu</a></li>
+			<li class="breadcrumb-item active" aria-current="page" th:text="*{code}">LS-2026-00001</li>
+		</ol>
+	</nav>
+
+	<div class="card">
+		<div class="card-body">
+			<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+				<h1 class="h3 mb-0" th:text="*{code}">LS-2026-00001</h1>
+				<span class="badge text-bg-secondary" th:text="*{status.label}">Đã tiếp nhận</span>
+			</div>
+			<dl class="row mb-0">
+				<dt class="col-sm-4">Tên sản phẩm</dt>
+				<dd class="col-sm-8" th:text="*{productName}">Paracetamol 500 mg</dd>
+				<dt class="col-sm-4">Số lô</dt>
+				<dd class="col-sm-8" th:text="*{batchNo}">PA-2601</dd>
+				<dt class="col-sm-4">Loại mẫu</dt>
+				<dd class="col-sm-8" th:text="*{sampleType.label}">Thành phẩm</dd>
+				<dt class="col-sm-4">Thời điểm nhận</dt>
+				<dd class="col-sm-8" th:text="${@fmt.dateTime(sample.receivedAt)}">22/10/2026 09:30</dd>
+				<dt class="col-sm-4">Hạn trả kết quả</dt>
+				<dd class="col-sm-8" th:text="${@fmt.date(sample.dueDate)}">29/10/2026</dd>
+				<dt class="col-sm-4">Người đăng ký</dt>
+				<dd class="col-sm-8" th:text="*{createdBy}">demo</dd>
+				<dt class="col-sm-4">Thời điểm đăng ký</dt>
+				<dd class="col-sm-8" th:text="${@fmt.dateTime(sample.createdAt)}">22/10/2026 09:31</dd>
+			</dl>
+		</div>
+	</div>
+</main>
+</body>
+</html>

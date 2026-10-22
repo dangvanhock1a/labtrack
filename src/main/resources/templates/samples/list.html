@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head>
+	<title>Danh sách mẫu · LabTrack</title>
+</head>
+<body>
+<main>
+	<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+		<h1 class="h3 mb-0">Danh sách mẫu</h1>
+		<a class="btn btn-primary" th:href="@{/samples/new}">Đăng ký mẫu</a>
+	</div>
+
+	<p th:if="${#lists.isEmpty(samples)}" class="text-body-secondary">Chưa có mẫu nào.</p>
+
+	<div th:unless="${#lists.isEmpty(samples)}" class="table-responsive">
+		<table class="table table-hover align-middle bg-white">
+			<thead>
+			<tr>
+				<th scope="col">Mã mẫu</th>
+				<th scope="col">Sản phẩm</th>
+				<th scope="col">Số lô</th>
+				<th scope="col">Loại mẫu</th>
+				<th scope="col">Trạng thái</th>
+				<th scope="col">Thời điểm nhận</th>
+				<th scope="col">Hạn trả</th>
+			</tr>
+			</thead>
+			<tbody>
+			<tr th:each="s : ${samples}">
+				<td><a th:href="@{/samples/{id}(id=${s.id})}" th:text="${s.code}">LS-2026-00001</a></td>
+				<td th:text="${s.productName}">Paracetamol 500 mg</td>
+				<td th:text="${s.batchNo}">PA-2601</td>
+				<td th:text="${s.sampleType.label}">Thành phẩm</td>
+				<td><span class="badge text-bg-secondary" th:text="${s.status.label}">Đã tiếp nhận</span></td>
+				<td class="text-nowrap" th:text="${@fmt.dateTime(s.receivedAt)}">22/10/2026 09:30</td>
+				<td class="text-nowrap" th:text="${@fmt.date(s.dueDate)}">29/10/2026</td>
+			</tr>
+			</tbody>
+		</table>
+	</div>
+</main>
+</body>
+</html>

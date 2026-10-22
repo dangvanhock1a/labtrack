@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: labtrack
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/labtrack}
+    username: ${DB_USER:labtrack}
+    password: ${DB_PASSWORD:labtrack}
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.pharmalab.labtrack.domain
+  configuration:
+    map-underscore-to-camel-case: true
+
+labtrack:
+  time-zone: Asia/Ho_Chi_Minh
+  page-size: 20

@@ -1,9 +1,16 @@
 services:
   postgres:
-    image: 'postgres:latest'
+    image: 'postgres:18'
+    container_name: labtrack-db
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      - 'POSTGRES_DB=labtrack'
+      - 'POSTGRES_USER=labtrack'
+      - 'POSTGRES_PASSWORD=labtrack'
     ports:
-      - '5432'
+      - '5432:5432'
+    volumes:
+      # PostgreSQL 18 lưu dữ liệu ở /var/lib/postgresql/18/docker, không còn dùng .../data
+      - 'labtrack-pgdata:/var/lib/postgresql'
+
+volumes:
+  labtrack-pgdata:
