@@ -26,4 +26,13 @@
 		ORDER BY received_at DESC, id DESC
 	</select>
 
+	<!-- BR-03: chỉ đổi khi mẫu vẫn ở trạng thái cũ; trả 0 dòng nếu người khác vừa đổi trước. -->
+	<update id="updateStatus">
+		UPDATE lab_sample
+		SET status = #{toStatus},
+		    updated_at = #{changedAt}
+		WHERE id = #{sampleId}
+		  AND status = #{fromStatus}
+	</update>
+
 </mapper>

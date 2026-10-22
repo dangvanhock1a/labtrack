@@ -19,11 +19,15 @@ public enum SampleStatus {
 	}
 
 	public boolean canTransitionTo(SampleStatus target) {
-		throw new UnsupportedOperationException("Chưa implement BR-03");
+		return switch (this) {
+			case RECEIVED -> target == IN_TESTING || target == CANCELLED;
+			case IN_TESTING -> target == COMPLETED || target == CANCELLED;
+			case COMPLETED, CANCELLED -> false;
+		};
 	}
 
 	public boolean isTerminal() {
-		throw new UnsupportedOperationException("Chưa implement BR-03");
+		return this == COMPLETED || this == CANCELLED;
 	}
 
 }

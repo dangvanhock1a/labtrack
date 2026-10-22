@@ -3,6 +3,7 @@ package com.pharmalab.labtrack.service;
 import com.pharmalab.labtrack.config.LabtrackProperties;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
+import com.pharmalab.labtrack.domain.SampleStatusChange;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -19,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class LabSampleService {
 
 	static final int DEFAULT_TURNAROUND_DAYS = 7;
+	static final int CANCEL_REASON_MIN_LENGTH = 5;
+	static final int CANCEL_REASON_MAX_LENGTH = 500;
 
 	private final LabSampleMapper sampleMapper;
 	private final SampleCodeGenerator codeGenerator;
@@ -69,13 +72,32 @@ public class LabSampleService {
 	/** Nhận mẫu vào kiểm nghiệm (UC-03, BR-03). */
 	@Transactional
 	public void startTesting(long sampleId) {
-		throw new UnsupportedOperationException("Chưa implement BR-03");
+		changeStatus(sampleId, SampleStatus.IN_TESTING, null);
 	}
 
 	/** Hủy mẫu chưa kết thúc, bắt buộc lý do 5–500 ký tự (UC-11, BR-03, BR-05). */
 	@Transactional
 	public void cancel(long sampleId, String reason) {
-		throw new UnsupportedOperationException("Chưa implement BR-05");
+		String trimmed = reason == null ? "" : reason.strip();
+		if (trimmed.length() < CANCEL_REASON_MIN_LENGTH || trimmed.length() > CANCEL_REASON_MAX_LENGTH) {
+			throw new BusinessRuleException("reason", "Lý do phải dài từ 5 đến 500 ký tự", "REASON_REQUIRED");
+		}
+		changeStatus(sampleId, SampleStatus.CANCELLED, trimmed);
+	}
+
+	private void changeStatus(long sampleId, SampleStatus target, String reason) {
+		LabSample sample = sampleMapper.findById(sampleId)
+			.orElseThrow(() -> new BusinessRuleException(null, "Không tìm thấy mẫu", "SAMPLE_NOT_FOUND"));
+		SampleStatus current = sample.getStatus();
+		if (!current.canTransitionTo(target)) {
+			throw new InvalidStatusTransitionException(current, target);
+		}
+		SampleStatusChange change = new SampleStatusChange(sampleId, current, target, reason, OffsetDateTime.now(clock));
+		// UPDATE ... WHERE status = <trạng thái cũ>: 0 dòng nghĩa là người khác vừa đổi trạng thái.
+		if (sampleMapper.updateStatus(change) == 0) {
+			throw new BusinessRuleException(null, "Mẫu vừa được người khác cập nhật, hãy tải lại trang",
+					"CONCURRENT_UPDATE");
+		}
 	}
 
 	public List<LabSample> findAll() {
