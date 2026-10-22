@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -86,6 +87,23 @@ public class SampleController {
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu"));
 		model.addAttribute("sample", sample);
 		return "samples/detail";
+	}
+
+	/** Nhận mẫu vào kiểm nghiệm (UC-03). Lỗi nghiệp vụ do {@link GlobalControllerAdvice} xử lý. */
+	@PostMapping("/{id:\\d+}/start")
+	String start(@PathVariable long id, RedirectAttributes redirectAttributes) {
+		sampleService.startTesting(id);
+		redirectAttributes.addFlashAttribute("message", "Đã nhận mẫu vào kiểm nghiệm");
+		return "redirect:/samples/{id}";
+	}
+
+	/** Hủy mẫu kèm lý do (UC-11). Lỗi nghiệp vụ do {@link GlobalControllerAdvice} xử lý. */
+	@PostMapping("/{id:\\d+}/cancel")
+	String cancel(@PathVariable long id, @RequestParam(required = false) String reason,
+			RedirectAttributes redirectAttributes) {
+		sampleService.cancel(id, reason);
+		redirectAttributes.addFlashAttribute("message", "Đã hủy mẫu");
+		return "redirect:/samples/{id}";
 	}
 
 }

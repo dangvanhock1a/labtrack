@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
@@ -15,25 +17,37 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import com.pharmalab.labtrack.config.LabtrackProperties;
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.service.BusinessRuleException;
+import com.pharmalab.labtrack.service.InvalidStatusTransitionException;
 import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.RegisterSampleCommand;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+// DisplayFormat (@fmt) là @Component thường nên @WebMvcTest không tự nạp; trang chi tiết cần nó (và
+// LabtrackProperties của nó) để render.
 @WebMvcTest(SampleController.class)
+@Import(DisplayFormat.class)
+@EnableConfigurationProperties(LabtrackProperties.class)
 class SampleControllerTest {
 
 	@Autowired
@@ -110,6 +124,80 @@ class SampleControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(model().attributeHasErrors("sampleForm"))
 			.andExpect(content().string(containsString("Đã hết dải mã mẫu của năm 2026")));
+	}
+
+	@Test
+	@DisplayName("TC-BR03-08 Nhận kiểm nghiệm sai trạng thái: redirect về chi tiết với flash error (PRG)")
+	void startWithInvalidTransitionRedirectsWithError() throws Exception {
+		doThrow(new InvalidStatusTransitionException(SampleStatus.COMPLETED, SampleStatus.IN_TESTING))
+			.when(sampleService).startTesting(42L);
+
+		mockMvc.perform(post("/samples/42/start"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"))
+			.andExpect(flash().attribute("error", "Không thể chuyển mẫu từ \"Hoàn thành\" sang \"Đang kiểm nghiệm\""))
+			.andExpect(flash().attributeCount(1));
+	}
+
+	@Test
+	@DisplayName("TC-BR03-09 Nhận kiểm nghiệm thành công: redirect về chi tiết với flash thành công")
+	void startRedirectsWithSuccessMessage() throws Exception {
+		mockMvc.perform(post("/samples/42/start"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"))
+			.andExpect(flash().attribute("message", "Đã nhận mẫu vào kiểm nghiệm"));
+
+		verify(sampleService).startTesting(42L);
+	}
+
+	@Test
+	@DisplayName("TC-BR03-10 Xung đột đồng thời: flash error yêu cầu tải lại trang")
+	void concurrentUpdateRedirectsWithError() throws Exception {
+		doThrow(new BusinessRuleException(null, "Mẫu vừa được người khác cập nhật, hãy tải lại trang",
+				"CONCURRENT_UPDATE"))
+			.when(sampleService).cancel(42L, "Gửi nhầm mẫu");
+
+		mockMvc.perform(post("/samples/42/cancel").param("reason", "Gửi nhầm mẫu"))
+			.andExpect(redirectedUrl("/samples/42"))
+			.andExpect(flash().attribute("error", "Mẫu vừa được người khác cập nhật, hãy tải lại trang"));
+	}
+
+	@Test
+	@DisplayName("TC-BR05-05 Hủy mẫu thành công: chuyển lý do cho service, redirect về chi tiết với flash thành công")
+	void cancelRedirectsWithSuccessMessage() throws Exception {
+		mockMvc.perform(post("/samples/42/cancel").param("reason", "Gửi nhầm mẫu"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"))
+			.andExpect(flash().attribute("message", "Đã hủy mẫu"));
+
+		verify(sampleService).cancel(42L, "Gửi nhầm mẫu");
+	}
+
+	@ParameterizedTest(name = "{0}: nhận = {1}, hủy = {2}, badge = {3}")
+	@CsvSource({
+			"RECEIVED,   true,  true,  bg-secondary",
+			"IN_TESTING, false, true,  bg-primary",
+			"COMPLETED,  false, false, bg-success",
+			"CANCELLED,  false, false, bg-dark"
+	})
+	@DisplayName("TC-BR03-11 Trang chi tiết: nút theo trạng thái và màu badge")
+	void detailShowsActionsByStatus(SampleStatus status, boolean canStart, boolean canCancel, String badge)
+			throws Exception {
+		LabSample sample = new LabSample();
+		sample.setId(42L);
+		sample.setCode("LS-2026-00001");
+		sample.setSampleType(SampleType.FINISHED_PRODUCT);
+		sample.setStatus(status);
+		when(sampleService.findById(42L)).thenReturn(Optional.of(sample));
+
+		String html = mockMvc.perform(get("/samples/42"))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+
+		assertThat(html.contains("action=\"/samples/42/start\"")).isEqualTo(canStart);
+		assertThat(html.contains("action=\"/samples/42/cancel\"")).isEqualTo(canCancel);
+		assertThat(html.contains("Lý do hủy (5–500 ký tự)")).isEqualTo(canCancel);
+		assertThat(html).contains("class=\"badge " + badge + "\"");
 	}
 
 	private static MockHttpServletRequestBuilder validForm() {

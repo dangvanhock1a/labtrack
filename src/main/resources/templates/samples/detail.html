@@ -16,7 +16,14 @@
 		<div class="card-body">
 			<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
 				<h1 class="h3 mb-0" th:text="*{code}">LS-2026-00001</h1>
-				<span class="badge text-bg-secondary" th:text="*{status.label}">Đã tiếp nhận</span>
+				<span class="badge" th:classappend="${@fmt.statusBadge(sample.status)}" th:text="*{status.label}">Đã tiếp nhận</span>
+				<div class="ms-auto d-flex flex-wrap gap-2">
+					<form th:if="*{status.name() == 'RECEIVED'}" th:action="@{/samples/{id}/start(id=*{id})}" method="post">
+						<button type="submit" class="btn btn-primary">Nhận kiểm nghiệm</button>
+					</form>
+					<button th:unless="*{status.terminal}" type="button" class="btn btn-outline-danger"
+							data-bs-toggle="modal" data-bs-target="#cancel-modal">Hủy mẫu</button>
+				</div>
 			</div>
 			<dl class="row mb-0">
 				<dt class="col-sm-4">Tên sản phẩm</dt>
@@ -34,6 +41,27 @@
 				<dt class="col-sm-4">Thời điểm đăng ký</dt>
 				<dd class="col-sm-8" th:text="${@fmt.dateTime(sample.createdAt)}">22/10/2026 09:31</dd>
 			</dl>
+		</div>
+	</div>
+
+	<div th:unless="*{status.terminal}" class="modal fade" id="cancel-modal" tabindex="-1"
+			aria-labelledby="cancel-modal-title" aria-hidden="true">
+		<div class="modal-dialog">
+			<form class="modal-content" th:action="@{/samples/{id}/cancel(id=*{id})}" method="post">
+				<div class="modal-header">
+					<h2 class="modal-title fs-5" id="cancel-modal-title">Hủy mẫu <span th:text="*{code}">LS-2026-00001</span></h2>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+				</div>
+				<div class="modal-body">
+					<label for="cancel-reason" class="form-label">Lý do hủy (5–500 ký tự)</label>
+					<textarea id="cancel-reason" name="reason" class="form-control" rows="3"
+							required minlength="5" maxlength="500"></textarea>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+					<button type="submit" class="btn btn-danger">Xác nhận hủy</button>
+				</div>
+			</form>
 		</div>
 	</div>
 </main>
