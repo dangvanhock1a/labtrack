@@ -66,6 +66,18 @@ public class LabSampleService {
 		return sample;
 	}
 
+	/** Nhận mẫu vào kiểm nghiệm (UC-03, BR-03). */
+	@Transactional
+	public void startTesting(long sampleId) {
+		throw new UnsupportedOperationException("Chưa implement BR-03");
+	}
+
+	/** Hủy mẫu chưa kết thúc, bắt buộc lý do 5–500 ký tự (UC-11, BR-03, BR-05). */
+	@Transactional
+	public void cancel(long sampleId, String reason) {
+		throw new UnsupportedOperationException("Chưa implement BR-05");
+	}
+
 	public List<LabSample> findAll() {
 		return sampleMapper.findAll();
 	}

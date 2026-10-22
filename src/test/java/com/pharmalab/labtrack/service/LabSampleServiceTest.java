@@ -3,6 +3,7 @@ package com.pharmalab.labtrack.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.pharmalab.labtrack.config.LabtrackProperties;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
+import com.pharmalab.labtrack.domain.SampleStatusChange;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import java.time.Clock;
@@ -19,10 +21,15 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -137,6 +144,132 @@ class LabSampleServiceTest {
 
 		assertThat(defaults.receivedAt()).isEqualTo(LocalDateTime.parse("2026-10-22T01:05"));
 		assertThat(defaults.dueDate()).isEqualTo(LocalDate.parse("2026-10-29"));
+	}
+
+	@Nested
+	class StatusChange {
+
+		// 09:00 ngày 07/10/2026 giờ VN.
+		static final Instant CHANGED_AT = Instant.parse("2026-10-07T02:00:00Z");
+		static final long SAMPLE_ID = 1L;
+
+		@BeforeEach
+		void useStatusClock() {
+			service = new LabSampleService(sampleMapper, codeGenerator,
+					Clock.fixed(CHANGED_AT, ZoneId.of("Asia/Ho_Chi_Minh")),
+					new LabtrackProperties(ZoneId.of("Asia/Ho_Chi_Minh"), 20));
+		}
+
+		@Test
+		@DisplayName("TC-BR03-03 Nhận kiểm nghiệm: Đã tiếp nhận → Đang kiểm nghiệm, UPDATE có điều kiện trạng thái cũ")
+		void startTestingFromReceived() {
+			givenSampleWithStatus(SampleStatus.RECEIVED);
+			when(sampleMapper.updateStatus(any())).thenReturn(1);
+
+			service.startTesting(SAMPLE_ID);
+
+			SampleStatusChange change = capturedStatusChange();
+			assertThat(change.sampleId()).isEqualTo(SAMPLE_ID);
+			assertThat(change.fromStatus()).isEqualTo(SampleStatus.RECEIVED);
+			assertThat(change.toStatus()).isEqualTo(SampleStatus.IN_TESTING);
+			assertThat(change.reason()).isNull();
+			assertThat(change.changedAt().toInstant()).isEqualTo(CHANGED_AT);
+		}
+
+		@Test
+		@DisplayName("TC-BR03-04 Nhận kiểm nghiệm mẫu đã Hoàn thành bị chặn, không ghi CSDL")
+		void startTestingFromCompletedIsRejected() {
+			givenSampleWithStatus(SampleStatus.COMPLETED);
+
+			assertThatThrownBy(() -> service.startTesting(SAMPLE_ID))
+				.isInstanceOf(InvalidStatusTransitionException.class)
+				.hasMessage("Không thể chuyển mẫu từ \"Hoàn thành\" sang \"Đang kiểm nghiệm\"");
+			verify(sampleMapper, never()).updateStatus(any());
+		}
+
+		@Test
+		@DisplayName("TC-BR03-05 Người khác vừa đổi trạng thái (UPDATE trả 0 dòng) → CONCURRENT_UPDATE")
+		void concurrentUpdateIsReported() {
+			givenSampleWithStatus(SampleStatus.RECEIVED);
+			when(sampleMapper.updateStatus(any())).thenReturn(0);
+
+			assertThatThrownBy(() -> service.startTesting(SAMPLE_ID)).isInstanceOf(BusinessRuleException.class)
+				.hasMessage("Mẫu vừa được người khác cập nhật, hãy tải lại trang")
+				.extracting("code").isEqualTo("CONCURRENT_UPDATE");
+		}
+
+		@Test
+		@DisplayName("TC-BR03-06 Đổi trạng thái mẫu không tồn tại → SAMPLE_NOT_FOUND, không ghi CSDL")
+		void missingSampleIsReported() {
+			when(sampleMapper.findById(SAMPLE_ID)).thenReturn(Optional.empty());
+
+			assertThatThrownBy(() -> service.startTesting(SAMPLE_ID)).isInstanceOf(BusinessRuleException.class)
+				.hasMessage("Không tìm thấy mẫu")
+				.extracting("code").isEqualTo("SAMPLE_NOT_FOUND");
+			verify(sampleMapper, never()).updateStatus(any());
+		}
+
+		@ParameterizedTest(name = "lý do = [{0}]")
+		@NullSource
+		@ValueSource(strings = { "", "    ", "abcd", "  abc  " })
+		@DisplayName("TC-BR05-01 Hủy mẫu thiếu lý do hoặc lý do dưới 5 ký tự (sau khi cắt khoảng trắng) → REASON_REQUIRED")
+		void cancelWithMissingOrShortReasonIsRejected(String reason) {
+			assertThatThrownBy(() -> service.cancel(SAMPLE_ID, reason)).isInstanceOf(BusinessRuleException.class)
+				.hasMessage("Lý do phải dài từ 5 đến 500 ký tự")
+				.extracting("code", "field").containsExactly("REASON_REQUIRED", "reason");
+			verifyNoInteractions(sampleMapper);
+		}
+
+		@Test
+		@DisplayName("TC-BR05-02 Hủy mẫu hợp lệ → Đã hủy, lý do được cắt khoảng trắng đầu/cuối")
+		void cancelWithValidReason() {
+			givenSampleWithStatus(SampleStatus.RECEIVED);
+			when(sampleMapper.updateStatus(any())).thenReturn(1);
+
+			service.cancel(SAMPLE_ID, "   Gửi nhầm mẫu   ");
+
+			SampleStatusChange change = capturedStatusChange();
+			assertThat(change.fromStatus()).isEqualTo(SampleStatus.RECEIVED);
+			assertThat(change.toStatus()).isEqualTo(SampleStatus.CANCELLED);
+			assertThat(change.reason()).isEqualTo("Gửi nhầm mẫu");
+			assertThat(change.changedAt().toInstant()).isEqualTo(CHANGED_AT);
+		}
+
+		@ParameterizedTest(name = "{0} ký tự")
+		@ValueSource(ints = { 5, 500 })
+		@DisplayName("TC-BR05-03 Lý do đúng 5 hoặc 500 ký tự thì hợp lệ")
+		void cancelAcceptsReasonLengthBoundaries(int length) {
+			givenSampleWithStatus(SampleStatus.IN_TESTING);
+			when(sampleMapper.updateStatus(any())).thenReturn(1);
+
+			service.cancel(SAMPLE_ID, "x".repeat(length));
+
+			assertThat(capturedStatusChange().reason()).hasSize(length);
+		}
+
+		@Test
+		@DisplayName("TC-BR05-04 Lý do 501 ký tự → REASON_REQUIRED")
+		void cancelRejectsTooLongReason() {
+			assertThatThrownBy(() -> service.cancel(SAMPLE_ID, "x".repeat(501)))
+				.isInstanceOf(BusinessRuleException.class)
+				.extracting("code").isEqualTo("REASON_REQUIRED");
+			verifyNoInteractions(sampleMapper);
+		}
+
+		private void givenSampleWithStatus(SampleStatus status) {
+			LabSample sample = new LabSample();
+			sample.setId(SAMPLE_ID);
+			sample.setCode("LS-2026-00001");
+			sample.setStatus(status);
+			when(sampleMapper.findById(SAMPLE_ID)).thenReturn(Optional.of(sample));
+		}
+
+		private SampleStatusChange capturedStatusChange() {
+			ArgumentCaptor<SampleStatusChange> change = ArgumentCaptor.forClass(SampleStatusChange.class);
+			verify(sampleMapper).updateStatus(change.capture());
+			return change.getValue();
+		}
+
 	}
 
 	private static RegisterSampleCommand command(LocalDateTime receivedAt, LocalDate dueDate) {

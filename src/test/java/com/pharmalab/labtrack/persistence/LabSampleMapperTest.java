@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
+import com.pharmalab.labtrack.domain.SampleStatusChange;
 import com.pharmalab.labtrack.domain.SampleType;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -105,6 +106,29 @@ class LabSampleMapperTest {
 
 		assertThatThrownBy(() -> mapper.insert(sample)).isInstanceOf(DataIntegrityViolationException.class)
 			.hasMessageContaining("ck_lab_sample_due_date");
+	}
+
+	@Test
+	@DisplayName("TC-BR03-07 updateStatus chỉ đổi khi trạng thái hiện tại khớp trạng thái cũ, nếu không trả 0 dòng")
+	void updateStatusRequiresExpectedCurrentStatus() {
+		LabSample sample = sample("LS-2999-00001", OffsetDateTime.parse("2999-01-01T03:00:00Z"));
+		mapper.insert(sample);
+		OffsetDateTime changedAt = OffsetDateTime.parse("2999-01-02T03:00:00Z");
+		SampleStatusChange start = new SampleStatusChange(sample.getId(), SampleStatus.RECEIVED,
+				SampleStatus.IN_TESTING, null, changedAt);
+
+		assertThat(mapper.updateStatus(start)).isEqualTo(1);
+		LabSample started = mapper.findById(sample.getId()).orElseThrow();
+		assertThat(started.getStatus()).isEqualTo(SampleStatus.IN_TESTING);
+		assertThat(started.getUpdatedAt().toInstant()).isEqualTo(changedAt.toInstant());
+
+		// Người thứ hai vẫn tưởng mẫu đang Đã tiếp nhận.
+		SampleStatusChange staleCancel = new SampleStatusChange(sample.getId(), SampleStatus.RECEIVED,
+				SampleStatus.CANCELLED, "Gửi nhầm mẫu", OffsetDateTime.parse("2999-01-02T03:00:01Z"));
+		assertThat(mapper.updateStatus(staleCancel)).isZero();
+		LabSample unchanged = mapper.findById(sample.getId()).orElseThrow();
+		assertThat(unchanged.getStatus()).isEqualTo(SampleStatus.IN_TESTING);
+		assertThat(unchanged.getUpdatedAt().toInstant()).isEqualTo(changedAt.toInstant());
 	}
 
 	private static LabSample sample(String code, OffsetDateTime receivedAt) {

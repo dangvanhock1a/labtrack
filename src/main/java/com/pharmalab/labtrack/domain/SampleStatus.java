@@ -1,6 +1,6 @@
 package com.pharmalab.labtrack.domain;
 
-/** Trạng thái mẫu. Tên hằng phải khớp CHECK ck_lab_sample_status. Bảng chuyển trạng thái (BR-03) làm ở Lab 04. */
+/** Trạng thái mẫu và bảng chuyển trạng thái (BR-03). Tên hằng phải khớp CHECK ck_lab_sample_status. */
 public enum SampleStatus {
 
 	RECEIVED("Đã tiếp nhận"),
@@ -16,6 +16,14 @@ public enum SampleStatus {
 
 	public String getLabel() {
 		return label;
+	}
+
+	public boolean canTransitionTo(SampleStatus target) {
+		throw new UnsupportedOperationException("Chưa implement BR-03");
+	}
+
+	public boolean isTerminal() {
+		throw new UnsupportedOperationException("Chưa implement BR-03");
 	}
 
 }
