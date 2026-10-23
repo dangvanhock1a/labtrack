@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pharmalab.labtrack.persistence.TestResultMapper">
+
+	<!-- Dùng với FROM test_result r JOIN test_parameter p: cột của kết quả kèm mã, tên, cờ active của chỉ tiêu. -->
+	<sql id="columns">
+		r.id, r.sample_id, r.parameter_id, r.value, r.unit, r.spec_min, r.spec_max, r.verdict, r.status,
+		r.entered_by, r.entered_at, r.reviewed_by, r.reviewed_at, r.reject_reason, r.replaces_id,
+		p.code AS parameter_code, p.name AS parameter_name, p.active AS parameter_active
+	</sql>
+
+	<!--
+		BR-07: unit, spec_min, spec_max là bản chụp mà tầng nghiệp vụ lấy từ test_parameter ngay lúc nhập.
+		jdbcType bắt buộc cho các tham số có thể null (chỉ tiêu chỉ có một biên; lần nhập đầu không thay bản nào).
+	-->
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+		INSERT INTO test_result (sample_id, parameter_id, value, unit, spec_min, spec_max, verdict, status,
+		                         entered_by, entered_at, replaces_id)
+		VALUES (#{sampleId}, #{parameterId}, #{value}, #{unit}, #{specMin,jdbcType=NUMERIC},
+		        #{specMax,jdbcType=NUMERIC}, #{verdict}, #{status}, #{enteredBy}, #{enteredAt},
+		        #{replacesId,jdbcType=BIGINT})
+	</insert>
+
+	<select id="findById" resultType="TestResult">
+		SELECT <include refid="columns"/>
+		FROM test_result r
+		JOIN test_parameter p ON p.id = r.parameter_id
+		WHERE r.id = #{id}
+	</select>
+
+	<!-- BR-09: "Lần n" đánh số theo thứ tự nhập của từng chỉ tiêu trên mẫu, tính cả bản bị từ chối. -->
+	<select id="findBySample" resultType="TestResult">
+		SELECT <include refid="columns"/>,
+		       row_number() OVER (PARTITION BY r.parameter_id ORDER BY r.id) AS attempt_no
+		FROM test_result r
+		JOIN test_parameter p ON p.id = r.parameter_id
+		WHERE r.sample_id = #{sampleId}
+		ORDER BY p.display_order, r.id
+	</select>
+
+	<!-- Hiệu lực = Chờ duyệt hoặc Đã duyệt, cùng định nghĩa với ResultStatus.isEffective và uq_test_result_effective. -->
+	<select id="existsEffective" resultType="boolean">
+		SELECT EXISTS (
+		    SELECT 1
+		    FROM test_result
+		    WHERE sample_id = #{sampleId}
+		      AND parameter_id = #{parameterId}
+		      AND status IN ('PENDING', 'APPROVED'))
+	</select>
+
+	<!-- uq_test_result_replaces: mỗi bản bị từ chối chỉ được thay một lần, nên bản đã có người thay bị loại ra. -->
+	<select id="findReplaceableRejectedId" resultType="long">
+		SELECT r.id
+		FROM test_result r
+		WHERE r.sample_id = #{sampleId}
+		  AND r.parameter_id = #{parameterId}
+		  AND r.status = 'REJECTED'
+		  AND NOT EXISTS (SELECT 1 FROM test_result n WHERE n.replaces_id = r.id)
+		ORDER BY r.id DESC
+		LIMIT 1
+	</select>
+
+	<!--
+		BR-08: điều kiện status = 'PENDING' làm câu lệnh chỉ khớp khi kết quả chưa ai xử lý; người bấm sau cập
+		nhật 0 dòng. sample_id nằm trong WHERE để không xử lý được kết quả của mẫu khác qua URL của mẫu này.
+		Ngoài bước chuyển này, trigger tg_test_result_guard_update (V4) chặn mọi UPDATE khác.
+	-->
+	<update id="review">
+		UPDATE test_result
+		SET status = #{toStatus}, reviewed_by = #{actor}, reviewed_at = #{reviewedAt},
+		    reject_reason = #{rejectReason,jdbcType=VARCHAR}
+		WHERE id = #{resultId}
+		  AND sample_id = #{sampleId}
+		  AND status = 'PENDING'
+	</update>
+
+</mapper>

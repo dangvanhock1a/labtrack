@@ -84,7 +84,7 @@ Ký hiệu loại test giống `cau-hoi-lam-ro.md` mục 1: **U** unit (Mockito,
 | R | Quy tắc | BR | Tầng chặn | Mã lỗi | Test |
 |---|---|---|---|---|---|
 | R1 | Chỉ nhập kết quả khi mẫu đang ở *Đang kiểm nghiệm*. Trạng thái được đọc **sau khi** đã khóa dòng mẫu (R14) | BR-06 | Giao diện (ẩn ô nhập) · Service | `SAMPLE_NOT_IN_TESTING` | TC-BR06-01 · TC-BR08-08 |
-| R2 | Chỉ tiêu phải tồn tại và `active = TRUE`. Chỉ tiêu ngừng dùng vẫn hiện trên trang chi tiết nếu mẫu đã có kết quả cho nó, nhưng không có ô nhập | BR-06 | Giao diện (chỉ chỉ tiêu active có ô nhập) · Service · DB `fk_test_result_parameter` | `PARAMETER_NOT_FOUND`, `PARAMETER_INACTIVE` | TC-BR06-02 · TC-BR06-11 |
+| R2 | Chỉ tiêu phải tồn tại và `active = TRUE`. Chỉ tiêu ngừng dùng vẫn hiện trên trang chi tiết nếu mẫu đã có kết quả cho nó, nhưng không có ô nhập | BR-06 | Giao diện (chỉ chỉ tiêu active có ô nhập) · Service · DB `fk_test_result_parameter` | `PARAMETER_NOT_FOUND`, `PARAMETER_INACTIVE` | TC-BR06-02 · TC-BR06-11 · TC-BR06-12 |
 | R3 | Giá trị bắt buộc, ≥ 0, tối đa 8 chữ số phần nguyên và 4 chữ số thập phân, đếm cả số 0 ở cuối (`98.50000` bị chặn). Ký hiệu khoa học có scale âm (`1e3`) được service đổi về scale 0 (`1000`). Giá trị được lưu và hiển thị đúng số chữ số người nhập (`98.50`) | BR-06 | Form (`@NotNull`, `@DecimalMin("0")`, `@Digits(integer = 8, fraction = 4)`; HTML `min="0"` `step="0.0001"`) · Service (kiểm tra `scale()` không bỏ số 0 cuối) · DB `ck_test_result_value` | `INVALID_VALUE` (field `value`) | TC-BR06-03 · TC-BR06-04 · TC-BR06-05 · TC-BR06-09 |
 | R4 | Mỗi (mẫu, chỉ tiêu) chỉ có 1 kết quả hiệu lực (*Chờ duyệt* hoặc *Đã duyệt*). Kết quả *Đã từ chối* không tính, nên vẫn nhập lại được. Lỗi `DuplicateKeyException` trên `uq_test_result_effective` được service đổi thành cùng thông báo | BR-06 | Service (kiểm tra khi đang giữ khóa mẫu) · DB `uq_test_result_effective` (unique partial index) | `RESULT_ALREADY_EFFECTIVE` | TC-BR06-06 · TC-BR06-07 · TC-BR06-08 |
 | R5 | Đánh giá do hệ thống tự tính: **Đạt** khi `(spec_min IS NULL OR value ≥ spec_min) AND (spec_max IS NULL OR value ≤ spec_max)`, ngược lại **Không đạt**. So bằng `BigDecimal.compareTo`, không làm tròn. Form không có trường đánh giá; request gửi kèm `verdict` thì phần đó bị bỏ qua | BR-07 | Service (`Spec.evaluate`) · DB `ck_test_result_verdict_spec` | | TC-BR07-01 · TC-BR07-02 · TC-BR07-03 |
@@ -166,6 +166,9 @@ Theo thứ tự này, kết quả của chính mình mà đã có người khác
 | TC-BR06-09 | `TestResultIntegrationTests` | I | Nhập ASSAY `98.50`: đọc lại được `98.50` (`toPlainString`), `PENDING`, `PASS`, bản chụp `%`/95/105, `entered_by`, `entered_at` lệch +07:00 |
 | TC-BR06-10 | `TestResultConcurrencyTests` | CC | Chiều 1: luồng A nhập kết quả và giữ transaction (latch), luồng B hủy mẫu thì bị chờ; A commit xong B mới hủy được, kết quả còn `PENDING`. Chiều 2: B hủy trước, A sau đó nhận `SAMPLE_NOT_IN_TESTING` |
 | TC-BR06-11 | `TestResultIntegrationTests` | I | Chèn trong test một chỉ tiêu `active = false` → nhập bị chặn; trang dữ liệu (`findSheet`) không có dòng nhập cho nó, trừ khi mẫu đã có kết quả |
+| TC-BR06-12 | `TestResultConstraintTests` | DB | INSERT với `parameter_id` không tồn tại; DELETE chỉ tiêu đã có kết quả → `fk_test_result_parameter` (R2; cờ `active` thì chỉ service chặn được) |
+| TC-BR06-13 | `TestResultMapperTests` | I | `TestParameterMapper`: 5 chỉ tiêu V4 đúng thứ tự `display_order`, `1.0` đọc lại vẫn là `1.0`; chỉ tiêu `active = false` chèn trong test vẫn được trả về; `findById` id không có → rỗng (R2) |
+| TC-BR06-14 | `TestResultMapperTests` | I | `TestResultMapper.insert` sinh id, `98.50` và bản chụp spec đọc lại nguyên vẹn; `existsEffective` đúng với PENDING/REJECTED; `findReplaceableRejectedId`; `findBySample` xếp theo chỉ tiêu, có tên chỉ tiêu và "Lần" 1, 2 (R3, R4, R6, R11) |
 | TC-BR07-01 | `SpecTest` | U | Tham số hóa biên của 5 chỉ tiêu V4: ASSAY 94.9999 / 95 / 105 / 105.0001 / **105.04 → Không đạt**; PH 4.4999 / 4.5 / 7 / 7.0001; LOD 0 / 0.5 / 0.5001; DISSOLUTION 79.9999 / 80 / 99999999.9999; IMPURITY_TOTAL 1.0 / 1.0001. Nhãn tiêu chuẩn "95 – 105", "≤ 0.5", "≥ 80" |
 | TC-BR07-02 | `SampleControllerTests` | W | POST có thêm `verdict=PASS` cho giá trị Không đạt → `NewResult` (bắt bằng `ArgumentCaptor`) chỉ có `parameterId`, `value` |
 | TC-BR07-03 | `TestResultConstraintTests` | DB | INSERT `105.04` + `PASS`; `80` + `FAIL` với spec ≥ 80 → `ck_test_result_verdict_spec` |
@@ -178,6 +181,7 @@ Theo thứ tự này, kết quả của chính mình mà đã có người khác
 | TC-BR08-06 | `SampleControllerTests` | W | `@WithAppUser("duyet", REVIEWER)`: kết quả do `duyet` nhập có nút `disabled` và câu giải thích; kết quả do `kiemnghiem1` nhập có nút bật; với ANALYST thì không có nút |
 | TC-BR08-07 | `TestResultConcurrencyTests` | CC | `duyet` duyệt và `duyet2` từ chối cùng một kết quả cùng lúc → 1 thành công, 1 nhận `RESULT_ALREADY_PROCESSED`; đúng 1 dòng audit APPROVE hoặc REJECT |
 | TC-BR08-08 | `TestResultIntegrationTests` + `SampleControllerTests` | I + W | Hủy mẫu còn kết quả `PENDING` → kết quả vẫn `PENDING`, số dòng audit không đổi; trang chi tiết mẫu đã hủy không có ô nhập, nút Duyệt/Từ chối, mà có ghi chú R15 |
+| TC-BR08-09 | `TestResultMapperTests` | I | `LabSampleMapper.lockById` trả mẫu, id không có → rỗng; `TestResultMapper.review` trả 1 với PENDING, trả 0 khi `sample_id` sai hoặc kết quả đã xử lý (R8, R14) |
 | TC-BR09-01 | `TestResultServiceTests` | U | Lý do dài 4 / 5 / 500 / 501 ký tự, chuỗi chỉ có khoảng trắng, `null`; lý do được lưu đã cắt khoảng trắng |
 | TC-BR09-02 | `TestResultIntegrationTests` | I | Nhập → từ chối → nhập lại: còn 2 dòng; dòng cũ `REJECTED` kèm lý do, `reviewed_by`, `reviewed_at`; dòng mới `PENDING`, `replaces_id` = dòng cũ; chỉ dòng mới hiệu lực |
 | TC-BR09-03 | `TestResultConstraintTests` | DB | `REJECTED` thiếu lý do hoặc lý do `'  sai  '`; `APPROVED` có lý do → `ck_test_result_reject_reason`. Thay một bản bị từ chối lần thứ hai → `uq_test_result_replaces`. `replaces_id` trỏ sang mẫu hoặc chỉ tiêu khác → `fk_test_result_replaces` |
@@ -189,6 +193,7 @@ Theo thứ tự này, kết quả của chính mình mà đã có người khác
 | TC-BR10-05 | `TestResultConstraintTests` | DB | `DELETE test_result` → `tg_test_result_no_delete`; đổi `value` (cả `98.50` → `98.5`), `entered_by`; `APPROVED` → `PENDING`; `REJECTED` → `APPROVED` → `tg_test_result_guard_update`; `PENDING` → `APPROVED` đủ cột thì ghi được |
 | TC-BR10-06 | `SampleControllerTests` | W | Tham số hóa 4 vai trò: trang chi tiết có mục "Kết quả kiểm nghiệm" và "Nhật ký kết quả", có dòng nhật ký mock |
 | TC-BR10-07 | `ResultFlowIntegrationTests` | H | Luồng trọn ở mục 5.2 |
+| TC-BR10-08 | `TestResultMapperTests` | I | `ResultAuditMapper.insert` trả 1, `detail->>'value'` = `98.50`, `acted_at` giữ đúng thời điểm truyền vào; `resultId` không có → 0; `findBySample` cũ trước mới sau (R12) |
 | TC-BR12-05 | `AppUserMapperTests` | I | Sửa: 6 tài khoản, thêm dòng `duyet2, REVIEWER`; sửa `@DisplayName` |
 | TC-BR12-15 | `AccessControlTests` | W | `POST /samples/1/results`: ANALYST, REVIEWER qua lớp bảo mật; RECEPTIONIST, MANAGER → 403 |
 | TC-BR12-16 | `AccessControlTests` | W | `POST …/results/2/approve` và `…/reject`: chỉ REVIEWER qua; ANALYST, RECEPTIONIST, MANAGER → 403 |
@@ -532,7 +537,7 @@ Nằm sau *Lịch sử trạng thái*; mọi vai trò xem được (R17). Cột:
 ./mvnw verify
 # hoặc từng nhóm:
 ./mvnw -q test "-Dtest=SpecTest,TestResultServiceTests,SampleControllerTests,AccessControlTests"
-./mvnw -q test "-Dtest=TestResultIntegrationTests,TestResultConstraintTests,TestResultConcurrencyTests,ResultFlowIntegrationTests,AppUserMapperTests"
+./mvnw -q test "-Dtest=TestResultIntegrationTests,TestResultConstraintTests,TestResultMapperTests,TestResultConcurrencyTests,ResultFlowIntegrationTests,AppUserMapperTests"
 ```
 
 Máy không có Docker thì chạy với profile `localdb` trên `labtrack_test`, như hướng dẫn trong CLAUDE.md (nhớ L1).

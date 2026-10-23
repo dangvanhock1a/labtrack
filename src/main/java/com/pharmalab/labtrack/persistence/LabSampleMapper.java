@@ -16,6 +16,13 @@ public interface LabSampleMapper {
 
 	Optional<LabSample> findById(long id);
 
+	/**
+	 * Đọc mẫu và khóa dòng của nó tới hết transaction ({@code SELECT … FOR UPDATE}). Mọi thao tác trên kết
+	 * quả gọi method này trước tiên (SPEC-004 R14): hủy mẫu phải chờ, nên trạng thái mẫu đọc được ở đây
+	 * vẫn đúng cho tới khi thao tác commit. Chỉ có ý nghĩa khi gọi trong transaction.
+	 */
+	Optional<LabSample> lockById(long id);
+
 	/** Mọi mẫu, thời điểm nhận mới nhất trước. */
 	List<LabSample> findAll();
 

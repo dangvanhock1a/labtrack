@@ -32,13 +32,14 @@ class AppUserMapperTests {
 	private PasswordEncoder passwordEncoder;
 
 	@ParameterizedTest(name = "[{index}] {0}: {1}")
-	@DisplayName("TC-BR12-05 Dữ liệu demo có đủ 5 tài khoản của LT-BRD mục 4, đúng vai trò, mật khẩu Passw0rd! khớp hash")
+	@DisplayName("TC-BR12-05 Dữ liệu demo có đủ 6 tài khoản (5 của LT-BRD mục 4 và người duyệt thứ hai duyet2), đúng vai trò, mật khẩu Passw0rd! khớp hash")
 	@CsvSource(textBlock = """
 			# tên đăng nhập  vai trò
 			tiepnhan,        RECEPTIONIST
 			kiemnghiem1,     ANALYST
 			kiemnghiem2,     ANALYST
 			duyet,           REVIEWER
+			duyet2,          REVIEWER
 			quanly,          MANAGER
 			""")
 	void devSeedAccount(String username, UserRole role) {
