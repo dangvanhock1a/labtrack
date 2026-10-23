@@ -17,6 +17,7 @@ Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · T
 - Mọi lớp test `@SpringBootTest` cần CSDL thật, dựng PostgreSQL bằng Testcontainers qua `@Import(TestcontainersConfiguration.class)`. Máy không có Docker thì bật profile `localdb` để tắt `TestcontainersConfiguration`, và trỏ `DB_URL` sang CSDL riêng cho test, đừng chạy test lên CSDL dev:
   `$env:DB_URL='jdbc:postgresql://localhost:5433/labtrack_test'; ./mvnw -q test "-Dspring.profiles.active=localdb"`
   Windows PowerShell 5.1 tách đối số `-D` ở dấu chấm đầu tiên nếu không bọc nháy. Quên profile thì các lớp trên báo `Could not find a valid Docker environment`.
+- E2E Playwright (`*IT.java`, gói `e2e`) chỉ chạy ở `./mvnw verify`, qua failsafe; một lớp: `-Dit.test=SmokeIT`. `-De2e.channel=msedge` (hoặc biến `E2E_BROWSER_CHANNEL`) dùng Edge/Chrome đã cài; thiếu kênh thì Playwright tải Chromium riêng. `-De2e.headed=true` để xem trình duyệt. Ảnh chụp ở `target/e2e-screenshots/`, trace ở `target/playwright-traces/` (mở bằng `trace.playwright.dev`).
 
 ## Kiến trúc — bắt buộc
 - `web` (controller, form) → `service` (quy tắc nghiệp vụ, transaction) → `persistence` (interface `@Mapper`). Controller không gọi mapper. SQL chỉ nằm trong `src/main/resources/mapper/*.xml`.
@@ -49,8 +50,9 @@ Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · T
 - `.mvn/jvm.config` ép stdout/stderr của Maven sang UTF-8. Trên Windows dùng locale không phải UTF-8 (ví dụ locale Nhật, MS932), thiếu nó thì tiếng Việt in ra thành `?`. Output có `?` hay ký tự lạ thay chữ có dấu là lỗi hiển thị, không phải dữ liệu sai. Chạy `java` bằng tay thì thêm `-Dstdout.encoding=UTF-8`.
 
 ## Test
-- `@DisplayName` mở đầu bằng `TC-BRxx-yy`.
+- `@DisplayName` mở đầu bằng `TC-BRxx-yy`. Riêng E2E dùng `TC-E2E-xx` theo `docs/kich-ban-e2e.md`, mã BR ghi ở cuối.
 - Ba kiểu test: unit thuần (dựng bằng `new`, mock mapper, `Clock.fixed` múi giờ VN, thử cả mốc sau nửa đêm giờ VN khi UTC còn là hôm trước); `@WebMvcTest` + `@MockitoBean` cho controller; `@SpringBootTest` + `@Import(TestcontainersConfiguration.class)` + `@Transactional` khi cần CSDL thật.
+- E2E kế thừa `E2ETestBase`. Trước mỗi test, `DbCleaner` TRUNCATE mọi bảng trừ `app_user`, `test_parameter`, `flyway_schema_history`, tắt tạm trigger chỉ-thêm của V4 trong cùng transaction; nó từ chối CSDL không tên `test`/`*_test`. Bảng tham chiếu mới thì thêm vào danh sách giữ lại trong `DbCleaner`. Locator theo thứ tự `getByRole` → `getByLabel` → `getByTestId`, không XPath, không chờ bằng sleep. `data-testid` trong template chỉ phục vụ E2E: đổi hay xóa là sửa test. Tiền điều kiện dựng qua service (`seedSampleInTesting`); luồng đầy đủ qua giao diện nằm ở TC-E2E-03.
 - `@WebMvcTest` phải `@Import(SecurityConfig.class)`; thiếu nó thì test chạy trên cấu hình bảo mật mặc định của Boot, mọi vai trò đều qua. Người đăng nhập trong test: dùng `@WithAppUser(username, role)`, hoặc `with(user(WithAppUserSecurityContextFactory.principal(…)))` khi vai trò là tham số. Không dùng `@WithMockUser` cho test render trang, vì navbar đọc `principal.fullName`. Mọi POST thêm `.with(csrf())`.
 - Service có hai lớp test tên gần giống nhau: `LabSampleServiceTests` (đăng ký) và `LabSampleServiceTest` (đổi trạng thái).
 

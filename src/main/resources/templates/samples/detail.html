@@ -23,7 +23,7 @@
 		<dd class="col-sm-9" th:text="${sample.sampleType.label}"></dd>
 
 		<dt class="col-sm-3">Trạng thái</dt>
-		<dd class="col-sm-9">
+		<dd class="col-sm-9" data-testid="status-badge">
 			<span th:replace="~{fragments/layout :: statusBadge(${sample.status})}"></span>
 		</dd>
 
@@ -61,7 +61,7 @@
 					<th scope="col">Thao tác</th>
 				</tr>
 				</thead>
-				<tbody>
+				<tbody data-testid="result-table">
 				<th:block th:each="row : ${resultSheet}" th:with="p=${row.parameter()}, r=${row.effective()}">
 					<tr>
 						<th scope="row" class="fw-normal">
@@ -69,7 +69,7 @@
 							<span th:unless="${p.active}" class="badge text-bg-light">Ngừng sử dụng</span>
 						</th>
 						<td class="text-nowrap" th:text="${row.specLabel()}">4.5 – 7</td>
-						<td>
+						<td data-testid="result-value">
 							<th:block th:if="${r != null}">
 								<span class="text-nowrap" th:text="|${r.value.toPlainString()} ${r.unit}|">6.2 pH</span>
 								<span th:if="${r.attemptNo != null and r.attemptNo > 1}"
@@ -92,19 +92,19 @@
 							<span th:if="${r == null and !(canEnter and row.awaitingEntry())}"
 								  class="text-body-secondary">Chưa có kết quả</span>
 						</td>
-						<td>
+						<td data-testid="result-verdict">
 							<th:block th:if="${r != null}">
 								<span th:replace="~{fragments/layout :: verdictBadge(${r.verdict})}"></span>
 							</th:block>
 						</td>
-						<td>
+						<td data-testid="result-status">
 							<th:block th:if="${r != null}">
 								<span th:replace="~{fragments/layout :: resultStatusBadge(${r.status})}"></span>
 								<small th:if="${r.reviewedBy != null}" class="d-block text-body-secondary text-nowrap"
 									   th:text="|${r.reviewedBy} · ${#temporals.format(r.reviewedAt, 'dd/MM/yyyy HH:mm')}|"></small>
 							</th:block>
 						</td>
-						<td class="text-nowrap" th:text="${r != null} ? |${r.enteredBy} · ${#temporals.format(r.enteredAt, 'dd/MM/yyyy HH:mm')}|"></td>
+						<td class="text-nowrap" data-testid="result-entered" th:text="${r != null} ? |${r.enteredBy} · ${#temporals.format(r.enteredAt, 'dd/MM/yyyy HH:mm')}|"></td>
 						<td>
 							<!-- BR-08: kết quả do chính mình nhập thì nút bị vô hiệu kèm lời giải thích, thay vì ẩn
 								 đi khiến người duyệt không hiểu vì sao không duyệt được. Nút disabled của Bootstrap có
@@ -131,10 +131,10 @@
 						</td>
 					</tr>
 					<!-- BR-09: bản bị từ chối được giữ lại và hiện gạch ngang dưới chỉ tiêu, kèm người từ chối và lý do. -->
-					<tr th:each="old : ${row.rejected()}" class="small">
+					<tr th:each="old : ${row.rejected()}" class="small" data-testid="rejected-result">
 						<td colspan="7" class="ps-4 text-body-secondary">
 							<span aria-hidden="true">└</span>
-							<span class="text-decoration-line-through"
+							<span class="text-decoration-line-through" data-testid="rejected-value"
 								  th:text="|${old.value.toPlainString()} ${old.unit}|">6.2 pH</span>
 							<span th:if="${old.attemptNo != null and old.attemptNo > 1}"
 								  th:text="|(Lần ${old.attemptNo})|">(Lần 2)</span>
@@ -165,7 +165,7 @@
 					<th scope="col">Lý do</th>
 				</tr>
 				</thead>
-				<tbody>
+				<tbody data-testid="history">
 				<tr th:each="h : ${history}">
 					<td class="text-nowrap" th:text="${#temporals.format(h.changedAt, 'dd/MM/yyyy HH:mm:ss')}"></td>
 					<td th:text="${h.changedBy}"></td>
@@ -202,7 +202,7 @@
 					<th scope="col">Chi tiết</th>
 				</tr>
 				</thead>
-				<tbody>
+				<tbody data-testid="audit">
 				<tr th:each="a : ${resultAudit}">
 					<td class="text-nowrap" th:text="${#temporals.format(a.actedAt, 'dd/MM/yyyy HH:mm:ss')}"></td>
 					<td th:text="${a.actor}"></td>
