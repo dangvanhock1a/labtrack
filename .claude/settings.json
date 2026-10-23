@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "PowerShell(./mvnw *)",
+      "PowerShell(.\\mvnw.cmd *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "PowerShell(git push *)",
+      "Bash(docker compose *)",
+      "Bash(docker rm *)"
+    ],
+    "deny": [
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Edit(./**/.env)",
+      "Edit(./**/.env.local)",
+      "Read(./secrets/**)",
+      "Edit(./secrets/**)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ]
+  }
+}
