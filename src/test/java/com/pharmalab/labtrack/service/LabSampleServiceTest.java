@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -24,6 +26,7 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
+import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
 
 /** Đổi trạng thái mẫu: nhận kiểm nghiệm (BR-03) và hủy mẫu (BR-05). */
 class LabSampleServiceTest {
@@ -38,8 +41,10 @@ class LabSampleServiceTest {
 
 	private final LabSampleMapper sampleMapper = mock(LabSampleMapper.class);
 
-	private final LabSampleService service = new LabSampleService(sampleMapper, mock(SampleCodeGenerator.class),
-			CLOCK);
+	private final StatusHistoryMapper historyMapper = mock(StatusHistoryMapper.class);
+
+	private final LabSampleService service = new LabSampleService(sampleMapper, historyMapper,
+			mock(SampleCodeGenerator.class), CLOCK);
 
 	private void givenSampleIn(SampleStatus status) {
 		LabSample sample = new LabSample();
@@ -113,6 +118,54 @@ class LabSampleServiceTest {
 		assertThat(result.getStatus()).isEqualTo(SampleStatus.CANCELLED);
 		verify(sampleMapper).updateStatus(new StatusChange(SAMPLE_ID, SampleStatus.RECEIVED, SampleStatus.CANCELLED,
 				"Gửi nhầm mẫu", "tiepnhan", NOW));
+	}
+
+	@Test
+	@DisplayName("TC-BR04-01 Nhận kiểm nghiệm ghi 1 dòng lịch sử cùng người và thời điểm với câu UPDATE")
+	void startTestingWritesOneHistoryRow() {
+		givenSampleIn(SampleStatus.RECEIVED);
+		when(sampleMapper.updateStatus(any())).thenReturn(1);
+
+		service.startTesting(SAMPLE_ID, "kiemnghiem1");
+
+		verify(historyMapper).insert(new StatusChange(SAMPLE_ID, SampleStatus.RECEIVED, SampleStatus.IN_TESTING,
+				null, "kiemnghiem1", NOW));
+		verifyNoMoreInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR04-02 Hủy mẫu ghi dòng lịch sử kèm lý do đã cắt khoảng trắng hai đầu")
+	void cancelWritesHistoryRowWithTrimmedReason() {
+		givenSampleIn(SampleStatus.RECEIVED);
+		when(sampleMapper.updateStatus(any())).thenReturn(1);
+
+		service.cancel(SAMPLE_ID, "  Gửi nhầm mẫu  ", "tiepnhan");
+
+		verify(historyMapper).insert(new StatusChange(SAMPLE_ID, SampleStatus.RECEIVED, SampleStatus.CANCELLED,
+				"Gửi nhầm mẫu", "tiepnhan", NOW));
+		verifyNoMoreInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR04-03 Chuyển trạng thái sai bị chặn thì không ghi dòng lịch sử nào")
+	void invalidTransitionWritesNoHistoryRow() {
+		givenSampleIn(SampleStatus.COMPLETED);
+
+		assertThatThrownBy(() -> service.startTesting(SAMPLE_ID, "kiemnghiem1"))
+			.isInstanceOf(InvalidStatusTransitionException.class);
+		verifyNoInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR04-04 Người khác vừa đổi trạng thái (UPDATE 0 dòng) thì không ghi dòng lịch sử")
+	void concurrentUpdateWritesNoHistoryRow() {
+		givenSampleIn(SampleStatus.RECEIVED);
+		when(sampleMapper.updateStatus(any())).thenReturn(0);
+
+		assertThatThrownBy(() -> service.startTesting(SAMPLE_ID, "kiemnghiem1"))
+			.isInstanceOf(BusinessException.class);
+		// Chứng minh câu insert nằm SAU cửa kiểm tra số dòng, không chỉ dựa vào rollback.
+		verifyNoInteractions(historyMapper);
 	}
 
 }

@@ -3,9 +3,11 @@ package com.pharmalab.labtrack.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -14,6 +16,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,7 +26,10 @@ import org.mockito.ArgumentCaptor;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.StatusHistory;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
+import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
 
 class LabSampleServiceTests {
 
@@ -34,13 +41,23 @@ class LabSampleServiceTests {
 	/** 00:30 ngày 10/10/2026 giờ VN, khi UTC vẫn là ngày 09/10. */
 	private static final Clock AFTER_MIDNIGHT = Clock.fixed(Instant.parse("2026-10-09T17:30:00Z"), VN);
 
+	private static final long NEW_SAMPLE_ID = 1L;
+
 	private final LabSampleMapper sampleMapper = mock(LabSampleMapper.class);
+
+	private final StatusHistoryMapper historyMapper = mock(StatusHistoryMapper.class);
 
 	private final SampleCodeGenerator codeGenerator = mock(SampleCodeGenerator.class);
 
 	private LabSampleService serviceAt(Clock clock) {
 		when(codeGenerator.nextCode(any())).thenReturn("LS-2026-00001");
-		return new LabSampleService(sampleMapper, codeGenerator, clock);
+		// MyBatis gán khóa do CSDL sinh vào sample.id; mock phải làm thay, nếu không dòng lịch sử
+		// lúc đăng ký không có sample_id để tham chiếu (BR-04).
+		doAnswer(call -> {
+			call.getArgument(0, LabSample.class).setId(NEW_SAMPLE_ID);
+			return null;
+		}).when(sampleMapper).insert(any());
+		return new LabSampleService(sampleMapper, historyMapper, codeGenerator, clock);
 	}
 
 	private static NewSample newSample(LocalDateTime receivedAt, LocalDate dueDate) {
@@ -82,7 +99,7 @@ class LabSampleServiceTests {
 				assertThat(ex.getField()).isEqualTo("receivedAt");
 				assertThat(ex).hasMessage("Thời điểm nhận mẫu không được ở tương lai");
 			});
-		verifyNoInteractions(codeGenerator, sampleMapper);
+		verifyNoInteractions(codeGenerator, sampleMapper, historyMapper);
 	}
 
 	@Test
@@ -105,7 +122,7 @@ class LabSampleServiceTests {
 				assertThat(ex.getField()).isEqualTo("dueDate");
 				assertThat(ex).hasMessage("Hạn trả kết quả phải từ ngày nhận mẫu trở đi");
 			});
-		verifyNoInteractions(codeGenerator, sampleMapper);
+		verifyNoInteractions(codeGenerator, sampleMapper, historyMapper);
 	}
 
 	@Test
@@ -134,6 +151,33 @@ class LabSampleServiceTests {
 		assertThat(saved.getBatchNo()).isEqualTo("PA-2601");
 		assertThat(saved.getSampleType()).isEqualTo(SampleType.FINISHED_PRODUCT);
 		verify(codeGenerator).nextCode(OffsetDateTime.parse("2026-10-09T09:30+07:00"));
+	}
+
+	@Test
+	@DisplayName("TC-BR04-05 Đăng ký mẫu ghi đúng 1 dòng lịch sử Tạo mới → Đã tiếp nhận, lý do \"Đăng ký mẫu\"")
+	void registerWritesCreationHistoryRow() {
+		serviceAt(MORNING).register(
+				newSample(LocalDateTime.parse("2026-10-09T09:30"), LocalDate.parse("2026-10-12")), "demo");
+
+		// Thời điểm lấy từ Clock (10:00), không phải thời điểm nhận mẫu nhập lùi (09:30): lần đổi
+		// trạng thái này xảy ra đúng lúc bấm đăng ký.
+		verify(historyMapper).insert(new StatusChange(NEW_SAMPLE_ID, null, SampleStatus.RECEIVED, "Đăng ký mẫu",
+				"demo", OffsetDateTime.parse("2026-10-09T10:00+07:00")));
+		verifyNoMoreInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR04-06 Lịch sử đọc ra được đổi về múi giờ ứng dụng")
+	void statusHistoryIsReturnedInClockZone() {
+		StatusHistory row = new StatusHistory();
+		row.setChangedAt(OffsetDateTime.parse("2026-10-09T03:00Z"));
+		when(historyMapper.findBySampleId(NEW_SAMPLE_ID)).thenReturn(new ArrayList<>(List.of(row)));
+
+		List<StatusHistory> history = serviceAt(MORNING).findStatusHistory(NEW_SAMPLE_ID);
+
+		assertThat(history).singleElement()
+			.extracting(StatusHistory::getChangedAt)
+			.isEqualTo(OffsetDateTime.parse("2026-10-09T10:00+07:00"));
 	}
 
 }
