@@ -28,10 +28,10 @@
 		</dd>
 
 		<dt class="col-sm-3">Thời điểm nhận</dt>
-		<dd class="col-sm-9" th:text="${#temporals.format(sample.receivedAt, 'dd/MM/yyyy HH:mm')}"></dd>
+		<dd class="col-sm-9" th:text="${@fmt.dateTime(sample.receivedAt)}"></dd>
 
 		<dt class="col-sm-3">Hạn trả kết quả</dt>
-		<dd class="col-sm-9" th:text="${#temporals.format(sample.dueDate, 'dd/MM/yyyy')}"></dd>
+		<dd class="col-sm-9" th:text="${@fmt.date(sample.dueDate)}"></dd>
 
 		<dt class="col-sm-3">Người đăng ký</dt>
 		<dd class="col-sm-9" th:text="${sample.createdBy}"></dd>
@@ -101,10 +101,10 @@
 							<th:block th:if="${r != null}">
 								<span th:replace="~{fragments/layout :: resultStatusBadge(${r.status})}"></span>
 								<small th:if="${r.reviewedBy != null}" class="d-block text-body-secondary text-nowrap"
-									   th:text="|${r.reviewedBy} · ${#temporals.format(r.reviewedAt, 'dd/MM/yyyy HH:mm')}|"></small>
+									   th:text="|${r.reviewedBy} · ${@fmt.dateTime(r.reviewedAt)}|"></small>
 							</th:block>
 						</td>
-						<td class="text-nowrap" data-testid="result-entered" th:text="${r != null} ? |${r.enteredBy} · ${#temporals.format(r.enteredAt, 'dd/MM/yyyy HH:mm')}|"></td>
+						<td class="text-nowrap" data-testid="result-entered" th:text="${r != null} ? |${r.enteredBy} · ${@fmt.dateTime(r.enteredAt)}|"></td>
 						<td>
 							<!-- BR-08: kết quả do chính mình nhập thì nút bị vô hiệu kèm lời giải thích, thay vì ẩn
 								 đi khiến người duyệt không hiểu vì sao không duyệt được. Nút disabled của Bootstrap có
@@ -139,7 +139,7 @@
 							<span th:if="${old.attemptNo != null and old.attemptNo > 1}"
 								  th:text="|(Lần ${old.attemptNo})|">(Lần 2)</span>
 							<span th:replace="~{fragments/layout :: resultStatusBadge(${old.status})}"></span>
-							<span th:text="|${old.reviewedBy} · ${#temporals.format(old.reviewedAt, 'dd/MM/yyyy HH:mm')}|">duyet</span>
+							<span th:text="|${old.reviewedBy} · ${@fmt.dateTime(old.reviewedAt)}|">duyet</span>
 							· Lý do: <span th:text="${old.rejectReason}">Sai độ pha loãng</span>
 						</td>
 					</tr>
@@ -152,7 +152,7 @@
 		</div>
 	</section>
 
-	<!-- BR-04: cũ trước mới sau; giờ đã được tầng nghiệp vụ đổi về múi giờ ứng dụng. -->
+	<!-- BR-04: cũ trước mới sau; @fmt in giờ theo múi giờ ứng dụng (NFR-04). -->
 	<section class="mb-4" aria-labelledby="historyTitle">
 		<h2 class="h5" id="historyTitle">Lịch sử trạng thái</h2>
 		<div class="table-responsive">
@@ -167,7 +167,7 @@
 				</thead>
 				<tbody data-testid="history">
 				<tr th:each="h : ${history}">
-					<td class="text-nowrap" th:text="${#temporals.format(h.changedAt, 'dd/MM/yyyy HH:mm:ss')}"></td>
+					<td class="text-nowrap" th:text="${@fmt.dateTimeSeconds(h.changedAt)}"></td>
 					<td th:text="${h.changedBy}"></td>
 					<td class="text-nowrap">
 						<!-- th:replace chạy trước th:if nếu đặt cùng thẻ, nên điều kiện nằm ở th:block bọc ngoài. -->
@@ -188,7 +188,7 @@
 		</div>
 	</section>
 
-	<!-- BR-10: audit trail của kết quả, cũ trước mới sau, mọi vai trò xem được; giờ đã đổi về múi giờ ứng dụng. -->
+	<!-- BR-10: audit trail của kết quả, cũ trước mới sau, mọi vai trò xem được; @fmt in giờ theo múi giờ ứng dụng. -->
 	<section class="mb-4" aria-labelledby="resultAuditTitle">
 		<h2 class="h5" id="resultAuditTitle">Nhật ký kết quả</h2>
 		<div class="table-responsive">
@@ -204,7 +204,7 @@
 				</thead>
 				<tbody data-testid="audit">
 				<tr th:each="a : ${resultAudit}">
-					<td class="text-nowrap" th:text="${#temporals.format(a.actedAt, 'dd/MM/yyyy HH:mm:ss')}"></td>
+					<td class="text-nowrap" th:text="${@fmt.dateTimeSeconds(a.actedAt)}"></td>
 					<td th:text="${a.actor}"></td>
 					<td th:text="${a.action.label}"></td>
 					<td th:text="${a.parameterName}"></td>

@@ -162,6 +162,20 @@ class SampleControllerTests {
 	}
 
 	@Test
+	@DisplayName("TC-BR02-10 Danh sách: thời điểm nhận mang offset UTC (dạng pgjdbc trả) vẫn hiện theo giờ VN")
+	void listShowsReceivedAtInVietnamTimeWhenValueIsUtc() throws Exception {
+		LabSample sample = sampleIn(SampleStatus.RECEIVED);
+		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T02:00Z"));
+		when(sampleService.findAll()).thenReturn(List.of(sample));
+
+		mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("07/10/2026 09:00")))
+			.andExpect(content().string(containsString("14/10/2026")))
+			.andExpect(content().string(not(containsString("07/10/2026 02:00"))));
+	}
+
+	@Test
 	@WithAppUser(username = "kiemnghiem1", role = ANALYST)
 	@DisplayName("TC-BR03-06 Chuyển trạng thái sai: quay lại trang chi tiết kèm thông báo lỗi dạng flash")
 	void startTestingFailureRedirectsToDetailWithFlashError() throws Exception {
@@ -542,6 +556,36 @@ class SampleControllerTests {
 		givenSampleIn(SampleStatus.IN_TESTING);
 
 		assertThat(detailPage()).contains("Nhật ký kết quả").contains("Chưa có thao tác nào trên kết quả");
+	}
+
+	@Test
+	@DisplayName("TC-BR10-09 Trang chi tiết: mọi thời điểm mang offset UTC đều hiện theo giờ VN, kể cả sau nửa đêm VN khi UTC còn hôm trước")
+	void detailShowsEveryTimestampInVietnamTimeWhenValuesAreUtc() throws Exception {
+		LabSample sample = sampleIn(SampleStatus.IN_TESTING);
+		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T02:00Z"));
+		when(sampleService.findById(SAMPLE_ID)).thenReturn(Optional.of(sample));
+		when(sampleService.findStatusHistory(SAMPLE_ID)).thenReturn(List.of(
+				historyRow(null, SampleStatus.RECEIVED, "Đăng ký mẫu", "tiepnhan", "2026-10-07T02:05:12Z")));
+		TestResult oldPh = rejected(result(12L, ph(), "6.2", Verdict.PASS, ResultStatus.PENDING, "kiemnghiem1", 1),
+				"duyet", "Sai độ pha loãng");
+		oldPh.setReviewedAt(OffsetDateTime.parse("2026-10-07T16:50Z"));
+		TestResult newPh = result(14L, ph(), "6.30", Verdict.PASS, ResultStatus.APPROVED, "kiemnghiem1", 2);
+		newPh.setEnteredAt(OffsetDateTime.parse("2026-10-07T17:30:15Z"));
+		newPh.setReviewedBy("duyet2");
+		newPh.setReviewedAt(OffsetDateTime.parse("2026-10-08T03:45Z"));
+		givenSheet(new ResultSheetRow(ph(), newPh, List.of(oldPh)));
+		when(resultService.findAudit(SAMPLE_ID)).thenReturn(List.of(
+				audit(ResultAction.ENTER, "kiemnghiem1", "2026-10-07T17:30:15Z", "6.30", Verdict.PASS, null)));
+
+		assertThat(detailPage()).contains("07/10/2026 09:00")
+			.contains("14/10/2026")
+			.contains("07/10/2026 09:05:12")
+			.contains("duyet · 07/10/2026 23:50")
+			.contains("kiemnghiem1 · 08/10/2026 00:30")
+			.contains("duyet2 · 08/10/2026 10:45")
+			.contains("08/10/2026 00:30:15")
+			.doesNotContain("07/10/2026 02:00")
+			.doesNotContain("07/10/2026 17:30");
 	}
 
 	private static ResultAudit audit(ResultAction action, String actor, String actedAt, String value, Verdict verdict,
