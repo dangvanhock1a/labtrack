@@ -20,6 +20,17 @@
 		WHERE id = #{id}
 	</select>
 
+	<!--
+		SPEC-004 R14: khóa dòng mẫu tới hết transaction. flushCache để lần đọc này luôn đi xuống CSDL: nếu
+		lấy từ cache phiên của MyBatis thì câu FOR UPDATE không chạy, dòng không bị khóa.
+	-->
+	<select id="lockById" resultType="LabSample" flushCache="true" useCache="false">
+		SELECT <include refid="columns"/>
+		FROM lab_sample
+		WHERE id = #{id}
+		FOR UPDATE
+	</select>
+
 	<select id="findAll" resultType="LabSample">
 		SELECT <include refid="columns"/>
 		FROM lab_sample

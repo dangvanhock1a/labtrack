@@ -1,12 +1,18 @@
 package com.pharmalab.labtrack.web;
 
 import java.security.Principal;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
@@ -20,8 +26,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.service.BusinessException;
 import com.pharmalab.labtrack.service.LabSampleService;
+import com.pharmalab.labtrack.service.TestResultService;
 
 import jakarta.validation.Valid;
 
@@ -36,10 +44,23 @@ import jakarta.validation.Valid;
 @RequestMapping("/samples")
 public class SampleController {
 
+	/**
+	 * Thứ tự chọn lỗi khi form kết quả có nhiều lỗi cùng lúc (SPEC-004 mục 2.2), theo mã chung nhất của lỗi.
+	 * Lỗi của {@code parameterId} luôn đứng đầu, xem {@link #resultErrorRank}.
+	 */
+	private static final List<String> RESULT_ERROR_ORDER = List.of("typeMismatch", "NotNull", "DecimalMin", "Digits");
+
 	private final LabSampleService sampleService;
 
-	public SampleController(LabSampleService sampleService) {
+	private final TestResultService resultService;
+
+	private final MessageSource messageSource;
+
+	public SampleController(LabSampleService sampleService, TestResultService resultService,
+			MessageSource messageSource) {
 		this.sampleService = sampleService;
+		this.resultService = resultService;
+		this.messageSource = messageSource;
 	}
 
 	/** Cắt khoảng trắng hai đầu và coi ô để trống là null, trước khi Bean Validation chạy. */
@@ -95,6 +116,8 @@ public class SampleController {
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu"));
 		model.addAttribute("sample", sample);
 		model.addAttribute("history", sampleService.findStatusHistory(id));
+		model.addAttribute("resultSheet", resultService.findSheet(id));
+		model.addAttribute("resultAudit", resultService.findAudit(id));
 		return "samples/detail";
 	}
 
@@ -119,6 +142,61 @@ public class SampleController {
 		redirectAttributes.addFlashAttribute("message", "Đã hủy mẫu " + sample.getCode());
 		redirectAttributes.addAttribute("id", id);
 		return "redirect:/samples/{id}";
+	}
+
+	/**
+	 * Nhập kết quả (BR-06). Form nằm ngay trên trang chi tiết nên lỗi không hiện lại form như
+	 * {@link #register}, mà thành flash {@code error} kèm {@code errorParameterId} để trang tô đỏ đúng dòng.
+	 * Chỉ báo một lỗi; lỗi {@code typeMismatch} lấy câu chữ từ {@code messages.properties} qua
+	 * {@link MessageSource}. Lỗi nghiệp vụ do {@link GlobalControllerAdvice} xử lý.
+	 */
+	@PostMapping("/{id}/results")
+	String enterResult(@PathVariable long id, @Valid @ModelAttribute ResultForm form, BindingResult bindingResult,
+			Principal principal, RedirectAttributes redirectAttributes, Locale locale) {
+		redirectAttributes.addAttribute("id", id);
+		if (bindingResult.hasErrors()) {
+			ObjectError error = bindingResult.getAllErrors().stream()
+				.min(Comparator.comparingInt(SampleController::resultErrorRank))
+				.orElseThrow();
+			redirectAttributes.addFlashAttribute("error", messageSource.getMessage(error, locale));
+			if (form.getParameterId() != null) {
+				redirectAttributes.addFlashAttribute("errorParameterId", form.getParameterId());
+			}
+			return "redirect:/samples/{id}";
+		}
+		TestResult result = resultService.enter(id, form.toNewResult(), principal.getName());
+		redirectAttributes.addFlashAttribute("message", "Đã nhập kết quả " + result.getParameterName() + ": "
+				+ result.getValue().toPlainString() + " " + result.getUnit() + " (" + result.getVerdict().getLabel() + ")");
+		return "redirect:/samples/{id}";
+	}
+
+	/** Duyệt kết quả (BR-08). */
+	@PostMapping("/{id}/results/{resultId}/approve")
+	String approveResult(@PathVariable long id, @PathVariable long resultId, Principal principal,
+			RedirectAttributes redirectAttributes) {
+		TestResult result = resultService.approve(id, resultId, principal.getName());
+		redirectAttributes.addFlashAttribute("message", "Đã duyệt kết quả " + result.getParameterName());
+		redirectAttributes.addAttribute("id", id);
+		return "redirect:/samples/{id}";
+	}
+
+	/** Từ chối kết quả kèm lý do (BR-09). Lý do để trống gửi lên dưới dạng {@code null} do {@link #trimStrings}. */
+	@PostMapping("/{id}/results/{resultId}/reject")
+	String rejectResult(@PathVariable long id, @PathVariable long resultId,
+			@RequestParam(required = false) String reason, Principal principal,
+			RedirectAttributes redirectAttributes) {
+		TestResult result = resultService.reject(id, resultId, reason, principal.getName());
+		redirectAttributes.addFlashAttribute("message", "Đã từ chối kết quả " + result.getParameterName());
+		redirectAttributes.addAttribute("id", id);
+		return "redirect:/samples/{id}";
+	}
+
+	private static int resultErrorRank(ObjectError error) {
+		if (error instanceof FieldError fieldError && "parameterId".equals(fieldError.getField())) {
+			return -1;
+		}
+		int rank = RESULT_ERROR_ORDER.indexOf(error.getCode());
+		return (rank >= 0) ? rank : RESULT_ERROR_ORDER.size();
 	}
 
 }

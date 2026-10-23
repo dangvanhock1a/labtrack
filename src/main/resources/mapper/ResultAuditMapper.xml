@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pharmalab.labtrack.persistence.ResultAuditMapper">
+
+	<!--
+		BR-10, SPEC-004 D12: detail là ảnh chụp dòng test_result ngay sau thao tác, trong cùng transaction.
+		Không có dòng kết quả thì SELECT rỗng, câu lệnh thêm 0 dòng. acted_at được ép kiểu tường minh: tham số
+		nằm trong danh sách SELECT chứ không trong VALUES, nên CSDL không suy kiểu của nó từ cột đích.
+	-->
+	<insert id="insert">
+		INSERT INTO result_audit (result_id, action, actor, acted_at, detail)
+		SELECT r.id, #{action}, #{actor}, CAST(#{actedAt} AS TIMESTAMPTZ),
+		       jsonb_build_object('parameter', p.code, 'value', r.value, 'unit', r.unit,
+		                          'specMin', r.spec_min, 'specMax', r.spec_max, 'verdict', r.verdict,
+		                          'status', r.status, 'rejectReason', r.reject_reason,
+		                          'replacesId', r.replaces_id)
+		FROM test_result r
+		JOIN test_parameter p ON p.id = r.parameter_id
+		WHERE r.id = #{resultId}
+	</insert>
+
+	<!-- Thêm id vào ORDER BY: hai thao tác trùng acted_at khi test dùng Clock cố định. -->
+	<select id="findBySample" resultType="ResultAudit">
+		SELECT a.id, a.action, a.actor, a.acted_at, p.name AS parameter_name,
+		       a.detail ->> 'value' AS value, a.detail ->> 'unit' AS unit,
+		       a.detail ->> 'verdict' AS verdict, a.detail ->> 'rejectReason' AS reject_reason
+		FROM result_audit a
+		JOIN test_result r ON r.id = a.result_id
+		JOIN test_parameter p ON p.id = r.parameter_id
+		WHERE r.sample_id = #{sampleId}
+		ORDER BY a.acted_at, a.id
+	</select>
+
+</mapper>

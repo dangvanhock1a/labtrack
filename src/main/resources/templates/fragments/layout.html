@@ -45,6 +45,18 @@
 						 CANCELLED: 'text-bg-secondary'} }"
 	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Đã tiếp nhận</span>
 
+<!-- Nhãn trạng thái kết quả (BR-08, BR-09). So theo tên hằng ResultStatus: đổi tên hằng phải sửa cả đây. -->
+<span th:fragment="resultStatusBadge(status)" class="badge"
+	  th:with="tones=${ {PENDING: 'text-bg-warning',
+						 APPROVED: 'text-bg-primary',
+						 REJECTED: 'text-bg-secondary'} }"
+	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Chờ duyệt</span>
+
+<!-- Đánh giá do hệ thống tính (BR-07): Đạt xanh lá, Không đạt đỏ. -->
+<span th:fragment="verdictBadge(verdict)" class="badge"
+	  th:classappend="${verdict.name() == 'PASS'} ? 'text-bg-success' : 'text-bg-danger'"
+	  th:text="${verdict.label}">Đạt</span>
+
 <th:block th:fragment="scripts">
 	<script th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>
 </th:block>

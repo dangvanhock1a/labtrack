@@ -32,8 +32,9 @@ public class SecurityConfig {
 	 * {@code /samples/new} và {@code /samples/export.csv} phải đứng trước {@code GET /samples/*},
 	 * nếu không chúng sẽ bị coi là "xem chi tiết" và mở cho mọi vai trò.
 	 * <p>
-	 * Duyệt/từ chối kết quả và kết luận mẫu chưa có URL trong mục 9, nên chưa có luật: hiện chúng
-	 * rơi vào {@code denyAll()}, và sẽ được thêm luật cho {@code REVIEWER} cùng lúc với endpoint.
+	 * Duyệt/từ chối kết quả chỉ dành cho {@code REVIEWER} (BR-08, SPEC-004 R9). {@code *} chỉ khớp một
+	 * đoạn đường dẫn, nên {@code /samples/*}{@code /results} không khớp {@code /samples/1/results/2/approve}
+	 * và hai luật không chồng nhau. Kết luận mẫu chưa có URL, nên vẫn rơi vào {@code denyAll()}.
 	 */
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -48,6 +49,8 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.POST, "/samples/*/start", "/samples/*/results")
 				.hasAnyRole(ANALYST.name(), REVIEWER.name())
 				.requestMatchers(HttpMethod.POST, "/samples/*/cancel").hasAnyRole(RECEPTIONIST.name(), REVIEWER.name())
+				.requestMatchers(HttpMethod.POST, "/samples/*/results/*/approve", "/samples/*/results/*/reject")
+				.hasRole(REVIEWER.name())
 				.requestMatchers(HttpMethod.GET, "/samples", "/samples/*").authenticated()
 				.anyRequest().denyAll())
 			// /login đã permitAll ở luật đầu, nên không gọi permitAll() của formLogin nữa.

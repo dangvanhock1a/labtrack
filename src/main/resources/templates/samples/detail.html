@@ -37,6 +37,121 @@
 		<dd class="col-sm-9" th:text="${sample.createdBy}"></dd>
 	</dl>
 
+	<!-- BR-06..BR-09 (SPEC-004 mục 4.2). Ẩn ô nhập và nút chỉ cho dễ dùng: quyền do SecurityConfig chặn, còn
+		 trạng thái mẫu, nguyên tắc 4 mắt và trùng kết quả do TestResultService chặn. #authorization.expression
+		 dùng cùng luật với sec:authorize; đặt trong th:with để mọi dòng dùng chung. -->
+	<section class="mb-4" aria-labelledby="resultsTitle"
+			 th:with="inTesting=${sample.status.name() == 'IN_TESTING'},
+					  canEnter=${inTesting and #authorization.expression('hasAnyRole(''ANALYST'', ''REVIEWER'')')},
+					  canReview=${inTesting and #authorization.expression('hasRole(''REVIEWER'')')}">
+		<h2 class="h5" id="resultsTitle">Kết quả kiểm nghiệm</h2>
+		<!-- R15: kết quả chờ duyệt của mẫu đã hủy giữ nguyên, nhưng không ai xử lý được nữa. -->
+		<p th:if="${sample.status.name() == 'CANCELLED' and !#lists.isEmpty(resultSheet.?[pending()])}"
+		   class="alert alert-warning py-2">Mẫu đã hủy, kết quả chờ duyệt không còn được xử lý</p>
+		<div class="table-responsive">
+			<table class="table table-sm align-middle">
+				<thead>
+				<tr>
+					<th scope="col">Chỉ tiêu</th>
+					<th scope="col">Tiêu chuẩn</th>
+					<th scope="col">Kết quả</th>
+					<th scope="col">Đánh giá</th>
+					<th scope="col">Trạng thái</th>
+					<th scope="col">Người nhập · lúc</th>
+					<th scope="col">Thao tác</th>
+				</tr>
+				</thead>
+				<tbody>
+				<th:block th:each="row : ${resultSheet}" th:with="p=${row.parameter()}, r=${row.effective()}">
+					<tr>
+						<th scope="row" class="fw-normal">
+							<span th:text="${p.name}">pH</span>
+							<span th:unless="${p.active}" class="badge text-bg-light">Ngừng sử dụng</span>
+						</th>
+						<td class="text-nowrap" th:text="${row.specLabel()}">4.5 – 7</td>
+						<td>
+							<th:block th:if="${r != null}">
+								<span class="text-nowrap" th:text="|${r.value.toPlainString()} ${r.unit}|">6.2 pH</span>
+								<span th:if="${r.attemptNo != null and r.attemptNo > 1}"
+									  class="text-body-secondary text-nowrap" th:text="|(Lần ${r.attemptNo})|">(Lần 2)</span>
+							</th:block>
+							<!-- Không có trường đánh giá: hệ thống tự tính (BR-07). -->
+							<form th:if="${canEnter and row.awaitingEntry()}" method="post"
+								  th:action="@{/samples/{id}/results(id=${sample.id})}">
+								<input type="hidden" name="parameterId" th:value="${p.id}">
+								<label class="visually-hidden" th:for="|value-${p.id}|"
+									   th:text="|Giá trị ${p.name} (${p.unit})|">Giá trị pH (pH)</label>
+								<div class="input-group input-group-sm flex-nowrap">
+									<input type="number" class="form-control" th:id="|value-${p.id}|" name="value"
+										   min="0" step="0.0001" inputmode="decimal" required style="min-width: 7rem"
+										   th:classappend="${errorParameterId == p.id} ? 'is-invalid'">
+									<span class="input-group-text" th:text="${p.unit}">pH</span>
+									<button type="submit" class="btn btn-primary">Lưu</button>
+								</div>
+							</form>
+							<span th:if="${r == null and !(canEnter and row.awaitingEntry())}"
+								  class="text-body-secondary">Chưa có kết quả</span>
+						</td>
+						<td>
+							<th:block th:if="${r != null}">
+								<span th:replace="~{fragments/layout :: verdictBadge(${r.verdict})}"></span>
+							</th:block>
+						</td>
+						<td>
+							<th:block th:if="${r != null}">
+								<span th:replace="~{fragments/layout :: resultStatusBadge(${r.status})}"></span>
+								<small th:if="${r.reviewedBy != null}" class="d-block text-body-secondary text-nowrap"
+									   th:text="|${r.reviewedBy} · ${#temporals.format(r.reviewedAt, 'dd/MM/yyyy HH:mm')}|"></small>
+							</th:block>
+						</td>
+						<td class="text-nowrap" th:text="${r != null} ? |${r.enteredBy} · ${#temporals.format(r.enteredAt, 'dd/MM/yyyy HH:mm')}|"></td>
+						<td>
+							<!-- BR-08: kết quả do chính mình nhập thì nút bị vô hiệu kèm lời giải thích, thay vì ẩn
+								 đi khiến người duyệt không hiểu vì sao không duyệt được. Nút disabled của Bootstrap có
+								 pointer-events: none nên không nhận hover; tooltip gắn vào thẻ bọc, có tabindex để mở bằng
+								 bàn phím. Màn hình cảm ứng không có hover, nên câu giải thích vẫn hiện thành chữ nhỏ. -->
+							<th:block th:if="${row.pending() and canReview}"
+									  th:with="own=${r.enteredBy == #authentication.name},
+											   fourEyesNote='Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)'">
+								<div class="d-inline-flex flex-nowrap gap-1"
+									 th:attr="tabindex=${own} ? '0' : null, data-bs-toggle=${own} ? 'tooltip' : null,
+											  data-bs-title=${own} ? ${fourEyesNote} : null">
+									<form method="post"
+										  th:action="@{/samples/{id}/results/{resultId}/approve(id=${sample.id}, resultId=${r.id})}">
+										<button type="submit" class="btn btn-sm btn-success" th:disabled="${own}"
+												th:attr="aria-describedby=${own} ? |fourEyes-${r.id}| : null">Duyệt</button>
+									</form>
+									<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+											th:attr="data-bs-target=|#rejectModal-${r.id}|, aria-describedby=${own} ? |fourEyes-${r.id}| : null"
+											th:disabled="${own}">Từ chối</button>
+								</div>
+								<small th:if="${own}" class="d-block text-body-secondary" th:id="|fourEyes-${r.id}|"
+									   th:text="${fourEyesNote}">Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)</small>
+							</th:block>
+						</td>
+					</tr>
+					<!-- BR-09: bản bị từ chối được giữ lại và hiện gạch ngang dưới chỉ tiêu, kèm người từ chối và lý do. -->
+					<tr th:each="old : ${row.rejected()}" class="small">
+						<td colspan="7" class="ps-4 text-body-secondary">
+							<span aria-hidden="true">└</span>
+							<span class="text-decoration-line-through"
+								  th:text="|${old.value.toPlainString()} ${old.unit}|">6.2 pH</span>
+							<span th:if="${old.attemptNo != null and old.attemptNo > 1}"
+								  th:text="|(Lần ${old.attemptNo})|">(Lần 2)</span>
+							<span th:replace="~{fragments/layout :: resultStatusBadge(${old.status})}"></span>
+							<span th:text="|${old.reviewedBy} · ${#temporals.format(old.reviewedAt, 'dd/MM/yyyy HH:mm')}|">duyet</span>
+							· Lý do: <span th:text="${old.rejectReason}">Sai độ pha loãng</span>
+						</td>
+					</tr>
+				</th:block>
+				<tr th:if="${#lists.isEmpty(resultSheet)}">
+					<td colspan="7" class="text-body-secondary">Chưa có chỉ tiêu nào</td>
+				</tr>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
 	<!-- BR-04: cũ trước mới sau; giờ đã được tầng nghiệp vụ đổi về múi giờ ứng dụng. -->
 	<section class="mb-4" aria-labelledby="historyTitle">
 		<h2 class="h5" id="historyTitle">Lịch sử trạng thái</h2>
@@ -67,6 +182,40 @@
 				</tr>
 				<tr th:if="${#lists.isEmpty(history)}">
 					<td colspan="4" class="text-body-secondary">Chưa có lịch sử</td>
+				</tr>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<!-- BR-10: audit trail của kết quả, cũ trước mới sau, mọi vai trò xem được; giờ đã đổi về múi giờ ứng dụng. -->
+	<section class="mb-4" aria-labelledby="resultAuditTitle">
+		<h2 class="h5" id="resultAuditTitle">Nhật ký kết quả</h2>
+		<div class="table-responsive">
+			<table class="table table-sm align-middle">
+				<thead>
+				<tr>
+					<th scope="col">Thời điểm</th>
+					<th scope="col">Người thực hiện</th>
+					<th scope="col">Thao tác</th>
+					<th scope="col">Chỉ tiêu</th>
+					<th scope="col">Chi tiết</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr th:each="a : ${resultAudit}">
+					<td class="text-nowrap" th:text="${#temporals.format(a.actedAt, 'dd/MM/yyyy HH:mm:ss')}"></td>
+					<td th:text="${a.actor}"></td>
+					<td th:text="${a.action.label}"></td>
+					<td th:text="${a.parameterName}"></td>
+					<td th:switch="${a.action.name()}">
+						<th:block th:case="'ENTER'" th:text="|${a.value} ${a.unit} – ${a.verdict.label}|"></th:block>
+						<th:block th:case="'APPROVE'">Đã duyệt</th:block>
+						<th:block th:case="'REJECT'" th:text="|Lý do: ${a.rejectReason}|"></th:block>
+					</td>
+				</tr>
+				<tr th:if="${#lists.isEmpty(resultAudit)}">
+					<td colspan="5" class="text-body-secondary">Chưa có thao tác nào trên kết quả</td>
 				</tr>
 				</tbody>
 			</table>
@@ -112,6 +261,38 @@
 			</form>
 		</div>
 	</div>
+
+	<!-- BR-09: mỗi kết quả Chờ duyệt có modal riêng, nên form đã mang sẵn resultId mà không cần JS. Kết quả do
+		 chính mình nhập thì nút Từ chối đã bị vô hiệu, không cần modal. -->
+	<th:block th:each="row : ${resultSheet}">
+		<div th:if="${sample.status.name() == 'IN_TESTING' and row.pending()
+					 and row.effective().enteredBy != #authentication.name}"
+			 sec:authorize="hasRole('REVIEWER')" th:with="r=${row.effective()}"
+			 class="modal fade" th:id="|rejectModal-${r.id}|" tabindex="-1"
+			 th:attr="aria-labelledby=|rejectModalTitle-${r.id}|" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered">
+				<form class="modal-content" method="post"
+					  th:action="@{/samples/{id}/results/{resultId}/reject(id=${sample.id}, resultId=${r.id})}">
+					<div class="modal-header">
+						<h2 class="modal-title h5" th:id="|rejectModalTitle-${r.id}|"
+							th:text="|Từ chối kết quả ${r.parameterName}|">Từ chối kết quả pH</h2>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+					</div>
+					<div class="modal-body">
+						<p th:text="|${r.value.toPlainString()} ${r.unit}, do ${r.enteredBy} nhập|">6.2 pH, do kiemnghiem1 nhập</p>
+						<label th:for="|rejectReason-${r.id}|" class="form-label">Lý do từ chối (5–500 ký tự)</label>
+						<textarea class="form-control" th:id="|rejectReason-${r.id}|" name="reason" rows="3"
+								  minlength="5" maxlength="500" required></textarea>
+						<div class="form-text">Lý do được lưu cùng kết quả và không sửa được sau đó.</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+						<button type="submit" class="btn btn-danger">Từ chối</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</th:block>
 </main>
 
 <th:block th:replace="~{fragments/layout :: scripts}"></th:block>
@@ -119,6 +300,14 @@
 	// Thuộc tính autofocus không có tác dụng trong modal vì lúc tải trang ô nhập còn đang ẩn.
 	document.getElementById('cancelModal')?.addEventListener('shown.bs.modal', function () {
 		document.getElementById('reason').focus();
+	});
+	document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+		new bootstrap.Tooltip(el);
+	});
+	document.querySelectorAll('[id^="rejectModal-"]').forEach(function (modal) {
+		modal.addEventListener('shown.bs.modal', function () {
+			modal.querySelector('textarea').focus();
+		});
 	});
 </script>
 </body>
