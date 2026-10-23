@@ -105,11 +105,10 @@ class SampleLifecycleIT extends E2ETestBase {
 		assertThat(flash).hasText("Đã nhập kết quả pH: 7.5 pH (Không đạt)");
 		assertThat(resultRow("pH").getByTestId("result-verdict")).hasText("Không đạt");
 		assertThat(audit.filter(new Locator.FilterOptions().setHasText("Nhập"))).hasCount(2);
-		// Kiểm nghiệm viên không có quyền duyệt (BR-12), nên không thấy nút nào.
-		assertThat(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Duyệt").setExact(true)))
-			.hasCount(0);
-		assertThat(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Từ chối").setExact(true)))
-			.hasCount(0);
+		// Kiểm nghiệm viên không có quyền duyệt (BR-12): dòng đã có kết quả không còn nút nào. Đếm mọi nút chứ không
+		// đếm theo tên, vì đếm theo tên thì nút bị đổi chữ vẫn cho ra 0 và assertion luôn đúng.
+		assertThat(assay.getByRole(AriaRole.BUTTON)).hasCount(0);
+		assertThat(resultRow("pH").getByRole(AriaRole.BUTTON)).hasCount(0);
 		screenshot("04-da-nhap-2-ket-qua");
 
 		logout();
@@ -121,12 +120,11 @@ class SampleLifecycleIT extends E2ETestBase {
 		assertThat(flash).hasText("Đã duyệt kết quả pH");
 
 		for (String parameter : List.of("Định lượng hoạt chất", "pH")) {
-			Locator status = resultRow(parameter).getByTestId("result-status");
-			assertThat(status).containsText("Đã duyệt");
-			assertThat(status).containsText(actorAt("duyet"));
+			Locator row = resultRow(parameter);
+			assertThat(row.getByTestId("result-status")).containsText("Đã duyệt");
+			assertThat(row.getByTestId("result-status")).containsText(actorAt("duyet"));
+			assertThat(row.getByRole(AriaRole.BUTTON)).hasCount(0);
 		}
-		assertThat(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Duyệt").setExact(true)))
-			.hasCount(0);
 		assertThat(audit).hasCount(4);
 		assertThat(audit.filter(new Locator.FilterOptions().setHasText("Duyệt"))).hasCount(2);
 		// Chưa có chức năng kết luận mẫu (BR-11, I-8), nên duyệt hết kết quả không đổi trạng thái mẫu.
@@ -200,12 +198,15 @@ class SampleLifecycleIT extends E2ETestBase {
 		screenshot("05-da-nhap-lai");
 	}
 
+	// Tên nút khớp nguyên văn: không có setExact thì "Duyệt" khớp cả "Phê duyệt", nút bị đổi chữ mà test vẫn xanh.
 	private void approve(String parameterName) {
-		resultRow(parameterName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Duyệt")).click();
+		resultRow(parameterName).getByRole(AriaRole.BUTTON,
+				new Locator.GetByRoleOptions().setName("Duyệt").setExact(true)).click();
 	}
 
 	private void openRejectDialog(String parameterName) {
-		resultRow(parameterName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Từ chối")).click();
+		resultRow(parameterName).getByRole(AriaRole.BUTTON,
+				new Locator.GetByRoleOptions().setName("Từ chối").setExact(true)).click();
 	}
 
 	/** Kết quả nhập qua service làm tiền điều kiện; đường giao diện của bước nhập đã có TC-E2E-03 kiểm. */

@@ -29,8 +29,11 @@ class AuthorizationIT extends E2ETestBase {
 
 		assertThat(page.getByTestId("flash-success")).hasText("Đã nhập kết quả pH: 6.2 pH (Đạt)");
 		assertThat(resultRow("pH").getByTestId("result-entered")).containsText(actorAt("duyet"));
-		Locator approve = resultRow("pH").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Duyệt"));
-		Locator reject = resultRow("pH").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Từ chối"));
+		// Tên nút khớp nguyên văn: không có setExact thì "Duyệt" khớp cả "Phê duyệt", nút bị đổi chữ mà test vẫn xanh.
+		Locator approve = resultRow("pH").getByRole(AriaRole.BUTTON,
+				new Locator.GetByRoleOptions().setName("Duyệt").setExact(true));
+		Locator reject = resultRow("pH").getByRole(AriaRole.BUTTON,
+				new Locator.GetByRoleOptions().setName("Từ chối").setExact(true));
 		assertThat(approve).isDisabled();
 		assertThat(reject).isDisabled();
 		assertThat(approve).hasAccessibleDescription(FOUR_EYES_NOTE);
@@ -44,7 +47,7 @@ class AuthorizationIT extends E2ETestBase {
 		logout();
 		login("duyet2");
 		openSample(sample.getCode());
-		resultRow("pH").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Duyệt")).click();
+		approve.click();
 
 		assertThat(page.getByTestId("flash-success")).hasText("Đã duyệt kết quả pH");
 		Locator status = resultRow("pH").getByTestId("result-status");
