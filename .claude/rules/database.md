@@ -1,0 +1,21 @@
+---
+paths:
+  - "src/main/resources/db/**/*.sql"
+  - "src/main/java/**/domain/{SampleStatus,SampleType,ResultStatus,Verdict,ResultAction,UserRole}.java"
+  - "src/main/resources/application*.yml"
+---
+# CSDL và migration
+- Số migration lấy theo mục 13 `docs/yeu-cau-nghiep-vu.md` (V5 = BR-11, V6 = BR-13…). Kiểm: `git diff --name-status main -- src/main/resources/db/migration` chỉ có dòng `A`.
+- Thay ràng buộc: `DROP CONSTRAINT` rồi `ADD CONSTRAINT` với đúng tên cũ, vì `TestResultConstraintTests` so khớp tên ràng buộc.
+- Tên ràng buộc `ck_`/`uq_`/`fk_` + `<bảng>_<ý nghĩa>`. Đúng: `ck_test_result_value`. Sai: để PostgreSQL tự đặt (`test_result_value_check`).
+- Không `DROP`/`DISABLE` trigger `tg_*` của V4 trong migration (NFR-03); chỉ `e2e/DbCleaner` được tắt tạm, trong một transaction.
+- `test_result`: không DELETE/TRUNCATE; UPDATE đúng một lần PENDING → APPROVED/REJECTED (`guard_test_result_update`). Nhập lại = INSERT dòng mới có `replaces_id`.
+- `result_audit` chỉ được INSERT; UPDATE/DELETE/TRUNCATE bị trigger chặn.
+- Bảng tham chiếu mới có dữ liệu nạp trong migration (như `test_parameter`) → thêm tên vào `NOT IN (…)` của `e2e/DbCleaner`, nếu không E2E xóa mất.
+- Hằng enum trong CHECK. `SampleStatus`: `ck_lab_sample_status` (V1), `ck_status_history_from/_to/_new/_cancel_reason` (V2). `SampleType`: `ck_lab_sample_type` (V1).
+- `UserRole`: `ck_app_user_role` (V3). `ResultStatus`: `ck_test_result_status/_review/_reject_reason` + hàm `guard_test_result_update` (V4). `Verdict`: `ck_test_result_verdict/_verdict_spec`. `ResultAction`: `ck_result_audit_action`.
+- Thêm, đổi hay xóa hằng → migration mới thay các CHECK/hàm trên, rồi sửa chuỗi trong `fragments/layout.html`, `samples/detail.html`, `hasRole('…')`. Sai: chỉ sửa enum Java, vì INSERT giá trị mới sẽ vi phạm CHECK lúc chạy.
+- `ck_lab_sample_due_date` (V1) ghi cứng `'Asia/Ho_Chi_Minh'`: đổi `labtrack.time-zone` → viết migration thay ràng buộc này.
+- `db/devdata` chỉ chứa dữ liệu giả (NFR-07); DDL đặt ở `db/migration`.
+- `R__dev_seed.sql` là migration repeatable, chạy lại mỗi khi file đổi → mọi INSERT có `ON CONFLICT … DO UPDATE`. Sai: `INSERT INTO app_user … VALUES (…);` trơn, vì lần chạy lại vi phạm UNIQUE.
+- Hash mật khẩu trong seed dán tay, mang tiền tố thuật toán `{bcrypt}` (`ck_app_user_password_hash`); TC-BR12-05 bắt hash sai.

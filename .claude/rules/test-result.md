@@ -1,0 +1,21 @@
+---
+paths:
+  - "src/main/java/**/service/{TestResultService,NewResult,ResultSheetRow}.java"
+  - "src/main/java/**/domain/{TestResult,ResultAudit,ResultReview,ResultStatus,ResultAction,Verdict,Spec,TestParameter}.java"
+  - "src/main/java/**/web/ResultForm.java"
+  - "src/main/resources/mapper/{TestResultMapper,ResultAuditMapper,TestParameterMapper}.xml"
+  - "docs/SPEC-004.md"
+---
+# Kết quả kiểm nghiệm (SPEC-004, BR-06..BR-10)
+- Đọc các mục `R<n>`/`L<n>` liên quan trong `docs/SPEC-004.md` trước khi sửa; Javadoc dẫn lại mã đó (ví dụ `SPEC-004 R14`).
+- Nhập, duyệt, từ chối đều gọi `lockSample(sampleId)` (`lockById`, `FOR UPDATE`) trước mọi kiểm tra có đọc CSDL → hủy mẫu phải chờ, và thao tác sau thấy dữ liệu thao tác trước vừa commit.
+- Chỉ nhập kết quả khi mẫu đang `IN_TESTING`; ngược lại ném `SAMPLE_NOT_IN_TESTING`.
+- Mỗi thao tác thành công ghi đúng 1 dòng `result_audit` (`writeAudit`) trong cùng transaction; số dòng khác 1 → `IllegalStateException`.
+- `verdict` do `Spec.evaluate` tính trên bản chụp `spec_min`/`spec_max` lưu trong `test_result`. `ResultForm` không có trường verdict; request gửi kèm `verdict=PASS` bị bỏ qua (TC-BR07-02).
+- So biên trên giá trị nguyên văn, không làm tròn: 105.04 với tiêu chuẩn 95–105 là Không đạt (TC-BR07-01).
+- Giá trị ≥ 0, < 10^8, tối đa 4 chữ số thập phân, chặn ở `ResultForm` (`@DecimalMin`, `@Digits`), ở service (`INVALID_VALUE`, tự đếm cả số 0 ở cuối: `98.50000` bị chặn, SPEC-004 L3) và ở `ck_test_result_value`.
+- Câu báo lỗi giá trị khai báo một lần ở `TestResultService` (`VALUE_REQUIRED`, `VALUE_NEGATIVE`, `VALUE_TOO_LONG`); `ResultForm` tham chiếu các hằng đó, không chép chuỗi.
+- Duyệt 4 mắt (BR-08): người duyệt khác người nhập, chặn ở service (`FOUR_EYES`) và CSDL (`ck_four_eyes`); giao diện vô hiệu nút khi `r.enteredBy == #authentication.name`.
+- Duyệt và từ chối chỉ dành cho `REVIEWER` (luật nằm ở `SecurityConfig`).
+- Từ chối cần lý do dài 5–500 ký tự sau khi cắt khoảng trắng (`REASON_REQUIRED`, `ck_test_result_reject_reason`).
+- Kết quả đã xử lý không được UPDATE lại (`RESULT_ALREADY_PROCESSED`, trigger `guard_test_result_update`); nhập lại là tạo dòng mới có `replaces_id`, mỗi bản chỉ được thay một lần (`uq_test_result_replaces`).
