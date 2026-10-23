@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Đăng nhập')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<main class="container" style="max-width: 420px">
+	<h1 class="h3 mb-3">Đăng nhập</h1>
+
+	<!-- Một câu chung cho mọi lỗi đăng nhập, để không lộ tên đăng nhập nào có thật. -->
+	<div th:if="${param.error}" class="alert alert-danger" role="alert">Tên đăng nhập hoặc mật khẩu không đúng</div>
+	<div th:if="${param.logout}" class="alert alert-success" role="status">Bạn đã đăng xuất</div>
+
+	<!-- th:action để Thymeleaf chèn CSRF token; thiếu token thì Spring Security trả 403. -->
+	<form th:action="@{/login}" method="post">
+		<div class="mb-3">
+			<label for="username" class="form-label">Tên đăng nhập</label>
+			<input type="text" class="form-control" id="username" name="username" autocomplete="username"
+				   required autofocus>
+		</div>
+		<div class="mb-3">
+			<label for="password" class="form-label">Mật khẩu</label>
+			<input type="password" class="form-control" id="password" name="password"
+				   autocomplete="current-password" required>
+		</div>
+		<button type="submit" class="btn btn-primary">Đăng nhập</button>
+	</form>
+</main>
+</body>
+</html>
