@@ -1,0 +1,22 @@
+---
+paths:
+  - "src/main/java/**/web/**/*.java"
+  - "src/main/java/**/config/SecurityConfig.java"
+  - "src/main/java/**/security/**/*.java"
+  - "src/main/resources/messages.properties"
+---
+# Controller, form, phân quyền
+- Endpoint mới đi kèm một luật `requestMatchers(HttpMethod.X, "…")` mới trong `SecurityConfig`; thiếu luật thì `anyRequest().denyAll()` trả 403.
+- Luật mới đặt trước `requestMatchers(HttpMethod.GET, "/samples", "/samples/*")`, vì luật khớp đầu tiên quyết định. Sai: đặt `GET /samples/export.csv` sau luật đó → bị coi là xem chi tiết, mọi vai trò mở được.
+- `*` khớp đúng một đoạn đường dẫn: `/samples/*/results` không khớp `/samples/1/results/2/approve`.
+- Không kiểm vai trò trong Java (`@PreAuthorize`, `@Secured`, `isUserInRole`); repo hiện có 0 chỗ.
+- Endpoint mới → thêm case `@ParameterizedTest @CsvSource` cho đủ 4 vai trò vào `AccessControlTests` (vai trò không được phép nhận 403) và một case thiếu CSRF nhận 403.
+- Method mới không try/catch `BusinessException`; `GlobalControllerAdvice` đưa lỗi vào flash `error` rồi redirect `/samples/{id}`.
+- Biến đường dẫn của mẫu phải tên `id`. Đúng: `@PostMapping("/{id}/start")`. Sai: `/{sampleId}/start`, vì khi lỗi người dùng bị đưa về `/samples`.
+- Ngoại lệ: `register` tự bắt lỗi để `bindingResult.rejectValue(ex.getField(), …)` và hiện lại form kèm dữ liệu đã nhập.
+- Lỗi form kết quả không hiện lại form: chọn 1 lỗi (`resultErrorRank`), đưa vào flash `error` + `errorParameterId`, rồi redirect.
+- Thành công: flash `message` + `redirect:/samples/{id}` (PRG); không trả view sau một POST thành công.
+- Người thực hiện: nhận `Principal principal` → truyền `principal.getName()`; không truyền `Authentication`/`AppUserPrincipal` xuống service.
+- `@InitBinder trimStrings` (cắt khoảng trắng, ô trống → `null`) chỉ có ở `SampleController`.
+- Controller mới có nhận form phải tự khai báo `@InitBinder` tương tự, nếu không service nhận `""` thay vì `null`.
+- Câu báo `typeMismatch` đặt ở `messages.properties` với khóa `typeMismatch.<tênForm>.<trường>` (ví dụ `typeMismatch.resultForm.value`).

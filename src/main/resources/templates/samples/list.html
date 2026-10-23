@@ -34,8 +34,8 @@
 				<td th:text="${s.batchNo}"></td>
 				<td th:text="${s.sampleType.label}"></td>
 				<td class="text-center" th:text="${s.status.label}"></td>
-				<td th:text="${#temporals.format(s.receivedAt, 'dd/MM/yyyy HH:mm')}"></td>
-				<td th:text="${#temporals.format(s.dueDate, 'dd/MM/yyyy')}"></td>
+				<td th:text="${@fmt.dateTime(s.receivedAt)}"></td>
+				<td th:text="${@fmt.date(s.dueDate)}"></td>
 			</tr>
 			</tbody>
 		</table>
