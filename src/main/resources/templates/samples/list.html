@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Danh sách mẫu')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
@@ -9,7 +9,7 @@
 
 	<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
 		<h1 class="h3 mb-0">Danh sách mẫu</h1>
-		<a class="btn btn-primary" th:href="@{/samples/new}">Đăng ký mẫu</a>
+		<a class="btn btn-primary" th:href="@{/samples/new}" sec:authorize="hasRole('RECEPTIONIST')">Đăng ký mẫu</a>
 	</div>
 
 	<p class="text-body-secondary" th:if="${#lists.isEmpty(samples)}">Chưa có mẫu nào.</p>

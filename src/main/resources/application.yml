@@ -5,6 +5,20 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/labtrack}
     username: ${DB_USER:labtrack}
     password: ${DB_PASSWORD:labtrack}
+  flyway:
+    # Khai báo locations là thay hẳn giá trị mặc định, nên phải ghi lại cả db/migration.
+    # db/devdata chỉ chứa dữ liệu giả (NFR-07), tách khỏi migration schema.
+    locations: classpath:db/migration,classpath:db/devdata
+
+server:
+  servlet:
+    session:
+      # NFR-02: phiên hết hạn sau 30 phút.
+      timeout: 30m
+      # Chỉ giữ phiên bằng cookie, không gắn ;jsessionid=… vào URL. Spring Security đã chặn việc này ở
+      # request thường, nhưng trang lỗi (error/403) được render ở lượt chuyển tiếp riêng, nơi bộ lọc đó
+      # không chạy, nên Tomcat vẫn gắn mã phiên vào các link.
+      tracking-modes: cookie
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml

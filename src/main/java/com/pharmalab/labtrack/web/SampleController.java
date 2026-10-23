@@ -1,5 +1,7 @@
 package com.pharmalab.labtrack.web;
 
+import java.security.Principal;
+
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
@@ -23,12 +25,16 @@ import com.pharmalab.labtrack.service.LabSampleService;
 
 import jakarta.validation.Valid;
 
+/**
+ * Người thực hiện ghi vào mẫu và lịch sử là tên đăng nhập, lấy từ {@link Principal} mà Spring MVC
+ * truyền vào. Dùng {@code Principal} chứ không dùng {@code @AuthenticationPrincipal}, để controller
+ * không phải biết lớp principal cụ thể và tầng nghiệp vụ chỉ nhận một chuỗi, không phụ thuộc
+ * Spring Security. Các method ghi dữ liệu đều đòi vai trò trong {@code SecurityConfig}, nên
+ * {@code principal} ở đây không bao giờ null.
+ */
 @Controller
 @RequestMapping("/samples")
 public class SampleController {
-
-	/** Người thực hiện tạm thời, thay bằng người đăng nhập ở Lab 06. */
-	static final String DEMO_USER = "demo";
 
 	private final LabSampleService sampleService;
 
@@ -61,13 +67,13 @@ public class SampleController {
 
 	@PostMapping
 	String register(@Valid @ModelAttribute("sampleForm") SampleForm form, BindingResult bindingResult,
-			RedirectAttributes redirectAttributes) {
+			Principal principal, RedirectAttributes redirectAttributes) {
 		if (bindingResult.hasErrors()) {
 			return "samples/form";
 		}
 		LabSample sample;
 		try {
-			sample = sampleService.register(form.toNewSample(), DEMO_USER);
+			sample = sampleService.register(form.toNewSample(), principal.getName());
 		}
 		catch (BusinessException ex) {
 			if (ex.getField() != null) {
@@ -97,8 +103,8 @@ public class SampleController {
 	 * {@link GlobalControllerAdvice} xử lý, nên ở đây không có try/catch.
 	 */
 	@PostMapping("/{id}/start")
-	String startTesting(@PathVariable long id, RedirectAttributes redirectAttributes) {
-		LabSample sample = sampleService.startTesting(id, DEMO_USER);
+	String startTesting(@PathVariable long id, Principal principal, RedirectAttributes redirectAttributes) {
+		LabSample sample = sampleService.startTesting(id, principal.getName());
 		redirectAttributes.addFlashAttribute("message",
 				"Mẫu " + sample.getCode() + " đã chuyển sang " + sample.getStatus().getLabel());
 		redirectAttributes.addAttribute("id", id);
@@ -107,9 +113,9 @@ public class SampleController {
 
 	/** Hủy mẫu kèm lý do (BR-05). Lý do để trống gửi lên dưới dạng {@code null} do {@link #trimStrings}. */
 	@PostMapping("/{id}/cancel")
-	String cancel(@PathVariable long id, @RequestParam(required = false) String reason,
+	String cancel(@PathVariable long id, @RequestParam(required = false) String reason, Principal principal,
 			RedirectAttributes redirectAttributes) {
-		LabSample sample = sampleService.cancel(id, reason, DEMO_USER);
+		LabSample sample = sampleService.cancel(id, reason, principal.getName());
 		redirectAttributes.addFlashAttribute("message", "Đã hủy mẫu " + sample.getCode());
 		redirectAttributes.addAttribute("id", id);
 		return "redirect:/samples/{id}";

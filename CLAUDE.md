@@ -13,8 +13,8 @@ Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · T
 
 ## Lệnh
 - `./mvnw -q test` · một lớp: `-Dtest=TenLop` · một method: `-Dtest='TenLop#tenMethod'` · đầy đủ: `./mvnw verify`. Dự án không có linter hay formatter.
-- `./mvnw spring-boot:run` → http://localhost:8080/samples (không có mapping cho `/`). CSDL dựng bằng `docker compose up -d`: PostgreSQL 18, cổng 5433, user/mật khẩu/CSDL đều là `labtrack`; đổi bằng `DB_URL`, `DB_USER`, `DB_PASSWORD`. Có Docker mà không muốn dựng compose: `./mvnw spring-boot:test-run` chạy `TestLabtrackApplication` với PostgreSQL của Testcontainers.
-- Ba lớp test cần CSDL thật (`LabtrackApplicationTests`, `SampleCodeCounterMapperTests`, `StatusHistoryIntegrationTests`) dựng PostgreSQL bằng Testcontainers. Máy không có Docker thì bật profile `localdb` để tắt `TestcontainersConfiguration`, và trỏ `DB_URL` sang CSDL riêng cho test, đừng chạy test lên CSDL dev:
+- `./mvnw spring-boot:run` → http://localhost:8080/samples (không có mapping cho `/`; sau khi đăng nhập, `/` trả 403). Đăng nhập bằng 5 tài khoản demo trong `db/devdata/R__dev_seed.sql` (LT-BRD mục 4), mật khẩu `Passw0rd!`. CSDL dựng bằng `docker compose up -d`: PostgreSQL 18, cổng 5433, user/mật khẩu/CSDL đều là `labtrack`; đổi bằng `DB_URL`, `DB_USER`, `DB_PASSWORD`. Có Docker mà không muốn dựng compose: `./mvnw spring-boot:test-run` chạy `TestLabtrackApplication` với PostgreSQL của Testcontainers.
+- Mọi lớp test `@SpringBootTest` cần CSDL thật, dựng PostgreSQL bằng Testcontainers qua `@Import(TestcontainersConfiguration.class)`. Máy không có Docker thì bật profile `localdb` để tắt `TestcontainersConfiguration`, và trỏ `DB_URL` sang CSDL riêng cho test, đừng chạy test lên CSDL dev:
   `$env:DB_URL='jdbc:postgresql://localhost:5433/labtrack_test'; ./mvnw -q test "-Dspring.profiles.active=localdb"`
   Windows PowerShell 5.1 tách đối số `-D` ở dấu chấm đầu tiên nếu không bọc nháy. Quên profile thì các lớp trên báo `Could not find a valid Docker environment`.
 
@@ -26,11 +26,18 @@ Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · T
 - `@InitBinder` của `SampleController` cắt khoảng trắng hai đầu và đổi ô để trống thành `null` trước khi validate, nên service nhận `null` chứ không nhận `""`.
 - Thời gian chỉ lấy từ bean `Clock` (`ClockConfig`), múi giờ đọc từ `labtrack.time-zone` chứ không theo JVM. pgjdbc trả `TIMESTAMPTZ` theo UTC, nên đường đọc nào trả thời điểm cũng phải đổi về múi giờ ứng dụng — xem `LabSampleService.toClockZone`.
 - Mã mẫu `LS-YYYY-NNNNN`: `SampleCodeGenerator` tăng bộ đếm theo năm (giờ VN) bằng `INSERT … ON CONFLICT … RETURNING`. Nó chạy với `Propagation.MANDATORY` để bộ đếm và mẫu cùng commit hoặc cùng rollback; gọi ngoài transaction là lỗi.
+- Phân quyền (BR-12) chỉ được cưỡng chế ở `SecurityConfig`, theo URL + HTTP method. Luật cuối là `anyRequest().denyAll()`, nên endpoint mới trả 403 cho tới khi có luật riêng: thêm endpoint là thêm luật, đặt trước `GET /samples/*`. `sec:authorize` trong template chỉ ẩn nút cho dễ dùng.
+- Người thực hiện: controller nhận `java.security.Principal` rồi truyền `principal.getName()` xuống service dưới dạng chuỗi. Package `service` không import Spring Security; chỉ `config` và `security` dùng nó.
+- CSRF bật cho mọi POST. Form phải dùng `th:action` để Thymeleaf chèn token; `action` thường thì bị 403.
 - Đổi trạng thái: bảng chuyển nằm ở `SampleStatus.canTransitionTo`. Service dựng một `StatusChange` rồi chạy `UPDATE … WHERE id = ? AND status = <trạng thái cũ>`. 0 dòng nghĩa là người khác vừa đổi trước → `CONCURRENT_UPDATE`, không phải lỗi hệ thống. UPDATE được 1 dòng thì chính `StatusChange` đó được ghi vào `sample_status_history` (BR-04), trong cùng transaction; đăng ký cũng ghi 1 dòng với `from_status` = null.
 
 ## Bẫy
 - Đổi schema là viết migration MỚI `V<n+1>__mo_ta.sql`. Không sửa migration đã commit.
 - Tên hằng `SampleStatus` và `SampleType` được ghi nguyên văn vào cột có `CHECK` liệt kê giá trị. Đổi tên hằng là phải viết migration cho mọi `CHECK` đó, và sửa cả template so chuỗi tên hằng (`fragments/layout.html`, `samples/detail.html`).
+- Tên hằng `UserRole` được ghi vào `app_user.role` (`ck_app_user_role`) và xuất hiện dạng chuỗi trong `hasRole('…')`/`hasAnyRole('…')` của template. Đổi tên hằng là phải viết migration và sửa cả template.
+- Navbar dùng chung cho trang đăng nhập và trang lỗi, nơi principal là chuỗi `anonymousUser`. Mọi chỗ đọc `#authentication.principal.*` phải nằm trong `sec:authorize="isAuthenticated()"`.
+- `db/devdata/R__dev_seed.sql` là migration repeatable: sửa file là Flyway chạy lại nó ở lần khởi động sau, nên phải viết idempotent (`ON CONFLICT … DO UPDATE`). Hash mật khẩu dán tay; TC-BR12-05 bắt hash sai.
+- Trang lỗi `templates/error/*.html` chỉ hiện qua Tomcat thật. Trong `@WebMvcTest`, lỗi không được chuyển sang `/error`, và Boot không chọn template `error/NNN` vì không có bean `DispatcherServlet`. Test trang lỗi bằng `@SpringBootTest(webEnvironment = RANDOM_PORT)`, như `ForbiddenPageIntegrationTests`.
 - `ck_lab_sample_due_date` ở V1 ghi cứng `'Asia/Ho_Chi_Minh'`. Đổi `labtrack.time-zone` là phải đổi cả ràng buộc này bằng migration.
 - `<select>` bọc `INSERT/UPDATE … RETURNING` phải có `flushCache="true" useCache="false"`, nếu không lần gọi thứ hai trong cùng transaction nhận lại giá trị cũ từ cache.
 - Boot 4 đổi chỗ so với Boot 3: dùng `@MockitoBean` (không phải `@MockBean`), `@WebMvcTest` nằm ở `org.springframework.boot.webmvc.test.autoconfigure`.
@@ -41,6 +48,7 @@ Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · T
 ## Test
 - `@DisplayName` mở đầu bằng `TC-BRxx-yy`.
 - Ba kiểu test: unit thuần (dựng bằng `new`, mock mapper, `Clock.fixed` múi giờ VN, thử cả mốc sau nửa đêm giờ VN khi UTC còn là hôm trước); `@WebMvcTest` + `@MockitoBean` cho controller; `@SpringBootTest` + `@Import(TestcontainersConfiguration.class)` + `@Transactional` khi cần CSDL thật.
+- `@WebMvcTest` phải `@Import(SecurityConfig.class)`; thiếu nó thì test chạy trên cấu hình bảo mật mặc định của Boot, mọi vai trò đều qua. Người đăng nhập trong test: dùng `@WithAppUser(username, role)`, hoặc `with(user(WithAppUserSecurityContextFactory.principal(…)))` khi vai trò là tham số. Không dùng `@WithMockUser` cho test render trang, vì navbar đọc `principal.fullName`. Mọi POST thêm `.with(csrf())`.
 - Service có hai lớp test tên gần giống nhau: `LabSampleServiceTests` (đăng ký) và `LabSampleServiceTest` (đổi trạng thái).
 
 ## Quy ước
@@ -48,4 +56,4 @@ Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · T
 - Javadoc tiếng Việt, nói lý do chọn cách làm, không mô tả lại cú pháp.
 
 ## Chưa có — đừng tưởng đã xong
-- Chưa có Spring Security: `SampleController.DEMO_USER` là người thực hiện hardcode, mọi endpoint đang mở, chưa có CSRF.
+- Chưa có quản lý tài khoản (tạo, khóa, đổi mật khẩu). Tài khoản chỉ đến từ `db/devdata/R__dev_seed.sql`, và file này chạy ở mọi môi trường có location `db/devdata` trong `spring.flyway.locations`. Khi có profile production, phải tách location này ra.

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Không có quyền')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<!-- Boot hiển thị trang này cho mọi phản hồi 403. Người đã đăng nhập nhận 403 khi vai trò không đủ quyền
+	 (BR-12), hoặc khi gửi một biểu mẫu cũ mà CSRF token đã đổi vì họ vừa đăng nhập lại. Người chưa đăng nhập
+	 chỉ nhận 403 khi CSRF token không khớp, thường do phiên hết hạn trong lúc trang còn mở; các URL cần
+	 đăng nhập khác thì chuyển họ tới /login chứ không trả 403. -->
+<main class="container" style="max-width: 720px">
+	<th:block sec:authorize="isAuthenticated()">
+		<h1 class="h3 mb-3">Bạn không có quyền thực hiện thao tác này</h1>
+		<p>
+			Vai trò <strong th:text="${#authentication.principal.role.label}">Kiểm nghiệm viên</strong> của bạn
+			không có quyền với trang hoặc thao tác này. Thao tác chưa được thực hiện.
+		</p>
+		<p class="text-body-secondary">
+			Nếu vai trò của bạn được phép, có thể biểu mẫu đã cũ vì bạn vừa đăng nhập lại. Hãy tải lại trang rồi thử lại.
+		</p>
+		<a class="btn btn-primary" th:href="@{/samples}">Về danh sách mẫu</a>
+	</th:block>
+
+	<th:block sec:authorize="!isAuthenticated()">
+		<h1 class="h3 mb-3">Phiên làm việc đã hết hạn</h1>
+		<p>Thao tác chưa được thực hiện. Hãy đăng nhập lại rồi thử lại.</p>
+		<a class="btn btn-primary" th:href="@{/login}">Đăng nhập</a>
+	</th:block>
+</main>
+</body>
+</html>

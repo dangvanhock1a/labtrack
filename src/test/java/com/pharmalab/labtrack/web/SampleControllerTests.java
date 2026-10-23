@@ -1,9 +1,13 @@
 package com.pharmalab.labtrack.web;
 
+import static com.pharmalab.labtrack.domain.UserRole.ANALYST;
+import static com.pharmalab.labtrack.domain.UserRole.RECEPTIONIST;
+import static com.pharmalab.labtrack.domain.UserRole.REVIEWER;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,17 +26,29 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.pharmalab.labtrack.config.SecurityConfig;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusHistory;
+import com.pharmalab.labtrack.security.WithAppUser;
 import com.pharmalab.labtrack.service.InvalidStatusTransitionException;
 import com.pharmalab.labtrack.service.LabSampleService;
 
+/**
+ * Hành vi của controller khi người dùng đã đủ quyền. Quyền theo vai trò (BR-12) được kiểm ở
+ * {@link AccessControlTests}. Người dùng mặc định ở đây là Người duyệt, vai trò thấy mọi nút trên
+ * trang chi tiết, nên các test trang chi tiết chỉ còn phụ thuộc trạng thái mẫu. Test nào gửi POST
+ * thì tự khai báo một vai trò được phép, kèm CSRF token, và kiểm rằng tên đăng nhập của người đó
+ * được truyền xuống tầng nghiệp vụ.
+ */
 @WebMvcTest(SampleController.class)
+@Import(SecurityConfig.class)
+@WithAppUser(username = "duyet", role = REVIEWER)
 class SampleControllerTests {
 
 	private static final long SAMPLE_ID = 42L;
@@ -74,9 +90,10 @@ class SampleControllerTests {
 	}
 
 	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
 	@DisplayName("TC-BR02-08 Gửi form trống thì hiện lại form với lỗi tiếng Việt ở các trường bắt buộc")
 	void emptyFormIsRejected() throws Exception {
-		mockMvc.perform(post("/samples")
+		mockMvc.perform(post("/samples").with(csrf())
 				.param("productName", "")
 				.param("batchNo", "")
 				.param("sampleType", "")
@@ -93,12 +110,13 @@ class SampleControllerTests {
 	}
 
 	@Test
+	@WithAppUser(username = "kiemnghiem1", role = ANALYST)
 	@DisplayName("TC-BR03-06 Chuyển trạng thái sai: quay lại trang chi tiết kèm thông báo lỗi dạng flash")
 	void startTestingFailureRedirectsToDetailWithFlashError() throws Exception {
-		when(sampleService.startTesting(SAMPLE_ID, SampleController.DEMO_USER))
+		when(sampleService.startTesting(SAMPLE_ID, "kiemnghiem1"))
 			.thenThrow(new InvalidStatusTransitionException(SampleStatus.COMPLETED, SampleStatus.IN_TESTING));
 
-		mockMvc.perform(post("/samples/{id}/start", SAMPLE_ID))
+		mockMvc.perform(post("/samples/{id}/start", SAMPLE_ID).with(csrf()))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/samples/42"))
 			.andExpect(flash().attribute("error",
@@ -131,12 +149,13 @@ class SampleControllerTests {
 	}
 
 	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
 	@DisplayName("TC-BR05-03 Gửi form hủy: lý do được cắt khoảng trắng rồi chuyển xuống tầng nghiệp vụ")
 	void cancelPassesTrimmedReasonToService() throws Exception {
-		when(sampleService.cancel(SAMPLE_ID, "Gửi nhầm mẫu", SampleController.DEMO_USER))
+		when(sampleService.cancel(SAMPLE_ID, "Gửi nhầm mẫu", "tiepnhan"))
 			.thenReturn(sampleIn(SampleStatus.CANCELLED));
 
-		mockMvc.perform(post("/samples/{id}/cancel", SAMPLE_ID).param("reason", "  Gửi nhầm mẫu  "))
+		mockMvc.perform(post("/samples/{id}/cancel", SAMPLE_ID).with(csrf()).param("reason", "  Gửi nhầm mẫu  "))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/samples/42"))
 			.andExpect(flash().attribute("message", "Đã hủy mẫu LS-2026-00042"));

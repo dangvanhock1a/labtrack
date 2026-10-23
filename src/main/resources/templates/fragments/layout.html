@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:fragment="head(title)">
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,10 +11,24 @@
 <nav th:fragment="navbar" class="navbar navbar-expand bg-primary mb-4" data-bs-theme="dark">
 	<div class="container flex-wrap">
 		<a class="navbar-brand" th:href="@{/samples}">LabTrack</a>
-		<div class="navbar-nav">
-			<a class="nav-link" th:href="@{/samples}">Danh sách mẫu</a>
-			<a class="nav-link" th:href="@{/samples/new}">Đăng ký mẫu</a>
-		</div>
+		<!-- Trang đăng nhập và trang lỗi cũng dùng navbar này; khi chưa đăng nhập, principal là chuỗi
+			 "anonymousUser", không có fullName. Vì vậy mọi chỗ đọc principal phải nằm trong khối này.
+			 BR-12: ẩn link chỉ cho dễ dùng, quyền thật do SecurityConfig chặn. -->
+		<th:block sec:authorize="isAuthenticated()">
+			<div class="navbar-nav me-auto">
+				<a class="nav-link" th:href="@{/samples}">Danh sách mẫu</a>
+				<a class="nav-link" th:href="@{/samples/new}" sec:authorize="hasRole('RECEPTIONIST')">Đăng ký mẫu</a>
+			</div>
+			<div class="d-flex flex-wrap align-items-center gap-2" th:with="user=${#authentication.principal}">
+				<span class="navbar-text">
+					<span th:text="${user.fullName}">Trần Thị Thu</span>
+					<span class="badge text-bg-light" th:text="${user.role.label}">Tiếp nhận mẫu</span>
+				</span>
+				<form method="post" th:action="@{/logout}">
+					<button type="submit" class="btn btn-sm btn-outline-light">Đăng xuất</button>
+				</form>
+			</div>
+		</th:block>
 	</div>
 </nav>
 
