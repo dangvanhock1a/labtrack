@@ -16,14 +16,14 @@
 			<label for="productName" class="form-label">Tên sản phẩm</label>
 			<input type="text" th:field="*{productName}" class="form-control" th:errorclass="is-invalid"
 				   maxlength="200">
-			<div class="invalid-feedback" th:errors="*{productName}"></div>
+			<div class="invalid-feedback" data-testid="productName-error" th:errors="*{productName}"></div>
 		</div>
 
 		<div class="mb-3">
 			<label for="batchNo" class="form-label">Số lô</label>
 			<input type="text" th:field="*{batchNo}" class="form-control" th:errorclass="is-invalid"
 				   maxlength="50">
-			<div class="invalid-feedback" th:errors="*{batchNo}"></div>
+			<div class="invalid-feedback" data-testid="batchNo-error" th:errors="*{batchNo}"></div>
 		</div>
 
 		<div class="mb-3">
@@ -32,7 +32,7 @@
 				<option value="">-- Chọn loại mẫu --</option>
 				<option th:each="t : ${sampleTypes}" th:value="${t}" th:text="${t.label}"></option>
 			</select>
-			<div class="invalid-feedback" th:errors="*{sampleType}"></div>
+			<div class="invalid-feedback" data-testid="sampleType-error" th:errors="*{sampleType}"></div>
 		</div>
 
 		<div class="row">

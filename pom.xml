@@ -30,6 +30,7 @@
 		<java.version>21</java.version>
 		<mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
 		<webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
+		<playwright.version>1.63.0</playwright.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -116,6 +117,12 @@
 			<artifactId>testcontainers-postgresql</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.microsoft.playwright</groupId>
+			<artifactId>playwright</artifactId>
+			<version>${playwright.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -123,6 +130,19 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<!-- Test E2E (*IT.java) chạy ở ./mvnw verify, không chạy ở ./mvnw test. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
