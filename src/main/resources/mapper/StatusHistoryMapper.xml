@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pharmalab.labtrack.persistence.StatusHistoryMapper">
+
+	<sql id="columns">
+		id, sample_id, from_status, to_status, changed_by, changed_at, reason
+	</sql>
+
+	<!--
+		BR-04: mỗi lần đổi trạng thái ghi đúng 1 dòng. jdbcType bắt buộc cho hai tham số có thể
+		null (lúc đăng ký chưa có trạng thái cũ; nhận kiểm nghiệm không có lý do), nếu không
+		MyBatis phải suy ra kiểu của NULL từ cấu hình chung.
+	-->
+	<insert id="insert">
+		INSERT INTO sample_status_history (sample_id, from_status, to_status, changed_by,
+		                                   changed_at, reason)
+		VALUES (#{sampleId}, #{fromStatus,jdbcType=VARCHAR}, #{toStatus}, #{changedBy},
+		        #{changedAt}, #{reason,jdbcType=VARCHAR})
+	</insert>
+
+	<!-- Thêm id vào ORDER BY: hai lần đổi trùng changed_at khi test dùng Clock cố định. -->
+	<select id="findBySampleId" resultType="StatusHistory">
+		SELECT <include refid="columns"/>
+		FROM sample_status_history
+		WHERE sample_id = #{sampleId}
+		ORDER BY changed_at, id
+	</select>
+
+</mapper>

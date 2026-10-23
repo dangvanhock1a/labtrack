@@ -37,6 +37,42 @@
 		<dd class="col-sm-9" th:text="${sample.createdBy}"></dd>
 	</dl>
 
+	<!-- BR-04: cũ trước mới sau; giờ đã được tầng nghiệp vụ đổi về múi giờ ứng dụng. -->
+	<section class="mb-4" aria-labelledby="historyTitle">
+		<h2 class="h5" id="historyTitle">Lịch sử trạng thái</h2>
+		<div class="table-responsive">
+			<table class="table table-sm align-middle">
+				<thead>
+				<tr>
+					<th scope="col">Thời điểm</th>
+					<th scope="col">Người thực hiện</th>
+					<th scope="col">Từ → đến</th>
+					<th scope="col">Lý do</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr th:each="h : ${history}">
+					<td class="text-nowrap" th:text="${#temporals.format(h.changedAt, 'dd/MM/yyyy HH:mm:ss')}"></td>
+					<td th:text="${h.changedBy}"></td>
+					<td class="text-nowrap">
+						<!-- th:replace chạy trước th:if nếu đặt cùng thẻ, nên điều kiện nằm ở th:block bọc ngoài. -->
+						<th:block th:if="${h.fromStatus == null}">Tạo mới</th:block>
+						<th:block th:unless="${h.fromStatus == null}">
+							<span th:replace="~{fragments/layout :: statusBadge(${h.fromStatus})}"></span>
+						</th:block>
+						→
+						<span th:replace="~{fragments/layout :: statusBadge(${h.toStatus})}"></span>
+					</td>
+					<td th:text="${h.reason}"></td>
+				</tr>
+				<tr th:if="${#lists.isEmpty(history)}">
+					<td colspan="4" class="text-body-secondary">Chưa có lịch sử</td>
+				</tr>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
 	<div class="d-flex flex-wrap gap-2">
 		<!-- BR-03: chỉ mẫu Đã tiếp nhận mới nhận vào kiểm nghiệm được. -->
 		<form th:if="${sample.status.name() == 'RECEIVED'}" method="post"

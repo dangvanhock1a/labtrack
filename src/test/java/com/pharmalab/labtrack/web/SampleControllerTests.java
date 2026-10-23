@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StatusHistory;
 import com.pharmalab.labtrack.service.InvalidStatusTransitionException;
 import com.pharmalab.labtrack.service.LabSampleService;
 
@@ -57,6 +59,18 @@ class SampleControllerTests {
 
 	private void givenSampleIn(SampleStatus status) {
 		when(sampleService.findById(SAMPLE_ID)).thenReturn(Optional.of(sampleIn(status)));
+	}
+
+	private static StatusHistory historyRow(SampleStatus from, SampleStatus to, String reason, String changedBy,
+			String changedAt) {
+		StatusHistory row = new StatusHistory();
+		row.setSampleId(SAMPLE_ID);
+		row.setFromStatus(from);
+		row.setToStatus(to);
+		row.setReason(reason);
+		row.setChangedBy(changedBy);
+		row.setChangedAt(OffsetDateTime.parse(changedAt));
+		return row;
 	}
 
 	@Test
@@ -137,6 +151,27 @@ class SampleControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(content().string(not(containsString("Nhận kiểm nghiệm"))))
 			.andExpect(content().string(not(containsString("Lý do hủy"))));
+	}
+
+	@Test
+	@DisplayName("TC-BR04-07 Trang chi tiết hiện lịch sử trạng thái: thời điểm, người, từ → đến, lý do")
+	void detailShowsStatusHistory() throws Exception {
+		givenSampleIn(SampleStatus.CANCELLED);
+		when(sampleService.findStatusHistory(SAMPLE_ID)).thenReturn(List.of(
+				historyRow(null, SampleStatus.RECEIVED, "Đăng ký mẫu", "tiepnhan", "2026-10-07T09:05:12+07:00"),
+				historyRow(SampleStatus.RECEIVED, SampleStatus.CANCELLED, "Gửi nhầm mẫu", "duyet",
+						"2026-10-08T14:30:45+07:00")));
+
+		mockMvc.perform(get("/samples/{id}", SAMPLE_ID))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Lịch sử trạng thái")))
+			.andExpect(content().string(containsString("07/10/2026 09:05:12")))
+			.andExpect(content().string(containsString("Tạo mới")))
+			.andExpect(content().string(containsString("Đăng ký mẫu")))
+			.andExpect(content().string(containsString("08/10/2026 14:30:45")))
+			.andExpect(content().string(containsString("duyet")))
+			.andExpect(content().string(containsString("Gửi nhầm mẫu")))
+			.andExpect(content().string(not(containsString("Chưa có lịch sử"))));
 	}
 
 }

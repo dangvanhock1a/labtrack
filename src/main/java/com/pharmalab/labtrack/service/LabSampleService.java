@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.StatusHistory;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
+import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
 
 @Service
 public class LabSampleService {
@@ -25,14 +27,21 @@ public class LabSampleService {
 
 	static final int MAX_REASON_LENGTH = 500;
 
+	/** Lý do của dòng lịch sử lúc đăng ký: không do người dùng nhập nên là nhãn cố định (BR-04). */
+	static final String REGISTER_REASON = "Đăng ký mẫu";
+
 	private final LabSampleMapper sampleMapper;
+
+	private final StatusHistoryMapper historyMapper;
 
 	private final SampleCodeGenerator codeGenerator;
 
 	private final Clock clock;
 
-	public LabSampleService(LabSampleMapper sampleMapper, SampleCodeGenerator codeGenerator, Clock clock) {
+	public LabSampleService(LabSampleMapper sampleMapper, StatusHistoryMapper historyMapper,
+			SampleCodeGenerator codeGenerator, Clock clock) {
 		this.sampleMapper = sampleMapper;
+		this.historyMapper = historyMapper;
 		this.codeGenerator = codeGenerator;
 		this.clock = clock;
 	}
@@ -46,7 +55,9 @@ public class LabSampleService {
 	/**
 	 * Đăng ký mẫu mới ở trạng thái Đã tiếp nhận (BR-01, BR-02). Thời điểm nhận và hạn trả
 	 * được kiểm tra theo múi giờ của {@link Clock} trước khi cấp mã, để không giữ khóa bộ
-	 * đếm mã khi dữ liệu sai.
+	 * đếm mã khi dữ liệu sai. Dòng lịch sử Tạo mới → Đã tiếp nhận ghi trong cùng transaction
+	 * (BR-04): ghi lỗi thì mẫu và số thứ tự mã cũng rollback theo. Thời điểm của dòng này lấy
+	 * từ {@link Clock} chứ không lấy thời điểm nhận, vì thời điểm nhận có thể được nhập lùi.
 	 */
 	@Transactional
 	public LabSample register(NewSample newSample, String actor) {
@@ -72,6 +83,8 @@ public class LabSampleService {
 		sample.setDueDate(dueDate);
 		sample.setCreatedBy(actor);
 		sampleMapper.insert(sample);
+		historyMapper.insert(new StatusChange(sample.getId(), null, SampleStatus.RECEIVED, REGISTER_REASON, actor,
+				OffsetDateTime.now(clock)));
 		return sample;
 	}
 
@@ -85,6 +98,13 @@ public class LabSampleService {
 		return sampleMapper.findById(id).map(this::toClockZone);
 	}
 
+	/** Lịch sử đổi trạng thái của một mẫu, cũ trước mới sau (BR-04). */
+	public List<StatusHistory> findStatusHistory(long sampleId) {
+		List<StatusHistory> history = historyMapper.findBySampleId(sampleId);
+		history.forEach(this::toClockZone);
+		return history;
+	}
+
 	/** Nhận mẫu vào kiểm nghiệm: Đã tiếp nhận → Đang kiểm nghiệm (BR-03). */
 	@Transactional
 	public LabSample startTesting(long id, String actor) {
@@ -93,7 +113,8 @@ public class LabSampleService {
 
 	/**
 	 * Hủy mẫu chưa kết thúc, bắt buộc lý do 5–500 ký tự sau khi cắt khoảng trắng (BR-03, BR-05).
-	 * Lý do được kiểm tra trước khi đọc mẫu: nó không phụ thuộc dữ liệu trong CSDL.
+	 * Lý do được kiểm tra trước khi đọc mẫu: nó không phụ thuộc dữ liệu trong CSDL. Lý do đã cắt
+	 * khoảng trắng được lưu vào dòng lịch sử của lần hủy (BR-04).
 	 */
 	@Transactional
 	public LabSample cancel(long id, String reason, String actor) {
@@ -108,6 +129,8 @@ public class LabSampleService {
 	 * Đổi trạng thái một mẫu (BR-03). Bảng chuyển trong {@link SampleStatus} chặn trước để báo
 	 * lỗi rõ ràng; câu UPDATE kèm trạng thái cũ chặn lần nữa, nên khi hai người bấm cùng lúc chỉ
 	 * một người đổi được, người còn lại cập nhật 0 dòng và được yêu cầu tải lại trang.
+	 * Dòng lịch sử (BR-04) chỉ ghi sau khi UPDATE thành công, và ghi bằng chính {@link StatusChange}
+	 * đó, nên lịch sử không thể lệch với trạng thái về người thực hiện hay thời điểm.
 	 */
 	private LabSample changeStatus(long id, SampleStatus toStatus, String reason, String actor) {
 		LabSample sample = findById(id)
@@ -122,6 +145,7 @@ public class LabSampleService {
 			throw new BusinessException("CONCURRENT_UPDATE", null,
 					"Mẫu vừa được người khác cập nhật, hãy tải lại trang");
 		}
+		historyMapper.insert(change);
 		sample.setStatus(toStatus);
 		sample.setUpdatedAt(change.changedAt());
 		return sample;
@@ -137,6 +161,12 @@ public class LabSampleService {
 		sample.setCreatedAt(inClockZone(sample.getCreatedAt()));
 		sample.setUpdatedAt(inClockZone(sample.getUpdatedAt()));
 		return sample;
+	}
+
+	/** Cùng lý do với {@link #toClockZone(LabSample)}: lịch sử phải hiện đúng giờ Việt Nam. */
+	private StatusHistory toClockZone(StatusHistory history) {
+		history.setChangedAt(inClockZone(history.getChangedAt()));
+		return history;
 	}
 
 	private OffsetDateTime inClockZone(OffsetDateTime value) {

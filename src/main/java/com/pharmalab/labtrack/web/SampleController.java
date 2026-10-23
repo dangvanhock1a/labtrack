@@ -88,6 +88,7 @@ public class SampleController {
 		LabSample sample = sampleService.findById(id)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu"));
 		model.addAttribute("sample", sample);
+		model.addAttribute("history", sampleService.findStatusHistory(id));
 		return "samples/detail";
 	}
 
