@@ -25,10 +25,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -133,6 +136,29 @@ class SampleControllerTests {
 			.andExpect(content().string(containsString("Vui lòng chọn loại mẫu")));
 
 		verifyNoInteractions(sampleService);
+	}
+
+	@Test
+	@DisplayName("TC-BR02-09 LT-101: JVM chạy UTC, danh sách vẫn hiện thời điểm nhận theo giờ VN (02:00Z → 07/10/2026 09:00)")
+	void listShowsReceivedAtInVietnamTimeEvenWhenJvmIsUtc() throws Exception {
+		// Mock trả thời điểm ở dạng LabSampleService.findAll trả thật: đã qua toClockZone, mang offset của Clock.
+		LabSample sample = sampleIn(SampleStatus.RECEIVED);
+		sample.setReceivedAt(Instant.parse("2026-10-07T02:00:00Z")
+			.atZone(ZoneId.of("Asia/Ho_Chi_Minh"))
+			.toOffsetDateTime());
+		when(sampleService.findAll()).thenReturn(List.of(sample));
+
+		TimeZone original = TimeZone.getDefault();
+		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+		try {
+			mockMvc.perform(get("/samples"))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString("07/10/2026 09:00")))
+				.andExpect(content().string(not(containsString("07/10/2026 02:00"))));
+		}
+		finally {
+			TimeZone.setDefault(original);
+		}
 	}
 
 	@Test
