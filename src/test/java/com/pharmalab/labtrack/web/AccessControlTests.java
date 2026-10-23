@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -41,9 +42,12 @@ import com.pharmalab.labtrack.config.SecurityConfig;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.domain.UserRole;
+import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.security.WithAppUser;
 import com.pharmalab.labtrack.service.LabSampleService;
+import com.pharmalab.labtrack.service.TestResultService;
 
 /**
  * Phân quyền theo URL và theo nút trên giao diện (BR-12), và trang đăng nhập (UC-01). Trang 403 nằm
@@ -59,11 +63,16 @@ class AccessControlTests {
 
 	private static final long SAMPLE_ID = 42L;
 
+	private static final long RESULT_ID = 7L;
+
 	@Autowired
 	private MockMvc mockMvc;
 
 	@MockitoBean
 	private LabSampleService sampleService;
+
+	@MockitoBean
+	private TestResultService resultService;
 
 	private static MockHttpServletRequestBuilder validRegistration() {
 		return post("/samples")
@@ -191,6 +200,84 @@ class AccessControlTests {
 		mockMvc.perform(get("/samples").with(user(principal("nguoidung", "Người dùng thử", role))))
 			.andExpect(status().isOk())
 			.andExpect(content().string(presentIf(visible, "href=\"/samples/new\"")));
+	}
+
+	private static TestResult phResult() {
+		TestResult result = new TestResult();
+		result.setId(RESULT_ID);
+		result.setSampleId(SAMPLE_ID);
+		result.setParameterName("pH");
+		result.setValue(new BigDecimal("6.2"));
+		result.setUnit("pH");
+		result.setVerdict(Verdict.PASS);
+		return result;
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}: được nhập = {1}")
+	@DisplayName("TC-BR12-15 Nhập kết quả: Kiểm nghiệm viên, Người duyệt qua lớp bảo mật; Tiếp nhận, Quản lý nhận 403")
+	@CsvSource(textBlock = """
+			ANALYST,        true
+			REVIEWER,       true
+			RECEPTIONIST,   false
+			MANAGER,        false
+			""")
+	void enterResultFollowsRole(UserRole role, boolean allowed) throws Exception {
+		when(resultService.enter(eq(SAMPLE_ID), any(), eq("nguoidung"))).thenReturn(phResult());
+
+		mockMvc.perform(post("/samples/{id}/results", SAMPLE_ID)
+				.with(user(principal("nguoidung", "Người dùng thử", role)))
+				.with(csrf())
+				.param("parameterId", "2")
+				.param("value", "6.2"))
+			.andExpect(allowed ? redirectedUrl("/samples/42") : status().isForbidden());
+
+		if (!allowed) {
+			verifyNoInteractions(resultService);
+		}
+	}
+
+	@ParameterizedTest(name = "[{index}] {0} {1}: được phép = {2}")
+	@DisplayName("TC-BR12-16 Duyệt và từ chối kết quả: chỉ Người duyệt qua lớp bảo mật, các vai trò khác nhận 403")
+	@CsvSource(textBlock = """
+			REVIEWER,       approve,  true
+			REVIEWER,       reject,   true
+			ANALYST,        approve,  false
+			ANALYST,        reject,   false
+			RECEPTIONIST,   approve,  false
+			RECEPTIONIST,   reject,   false
+			MANAGER,        approve,  false
+			MANAGER,        reject,   false
+			""")
+	void reviewResultOnlyForReviewer(UserRole role, String action, boolean allowed) throws Exception {
+		when(resultService.approve(SAMPLE_ID, RESULT_ID, "nguoidung")).thenReturn(phResult());
+		when(resultService.reject(SAMPLE_ID, RESULT_ID, "Sai độ pha loãng", "nguoidung")).thenReturn(phResult());
+
+		mockMvc.perform(post("/samples/{id}/results/{resultId}/{action}", SAMPLE_ID, RESULT_ID, action)
+				.with(user(principal("nguoidung", "Người dùng thử", role)))
+				.with(csrf())
+				.param("reason", "Sai độ pha loãng"))
+			.andExpect(allowed ? redirectedUrl("/samples/42") : status().isForbidden());
+
+		if (!allowed) {
+			verifyNoInteractions(resultService);
+		}
+	}
+
+	@ParameterizedTest(name = "[{index}] POST {0}")
+	@DisplayName("TC-BR12-17 Ba endpoint kết quả: chưa đăng nhập thì về trang đăng nhập; thiếu CSRF token thì 403")
+	@CsvSource(textBlock = """
+			/samples/42/results
+			/samples/42/results/7/approve
+			/samples/42/results/7/reject
+			""")
+	void resultEndpointsRequireLoginAndCsrf(String url) throws Exception {
+		mockMvc.perform(post(url).with(csrf()))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string(HttpHeaders.LOCATION, endsWith("/login")));
+		mockMvc.perform(post(url).with(user(principal("duyet", "Phạm Thị Hoa", UserRole.REVIEWER))))
+			.andExpect(status().isForbidden());
+
+		verifyNoInteractions(resultService);
 	}
 
 	@ParameterizedTest(name = "[{index}] /login?{0}")
