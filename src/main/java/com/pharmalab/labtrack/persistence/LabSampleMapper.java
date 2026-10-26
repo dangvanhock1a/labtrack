@@ -4,9 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.Verdict;
 
 @Mapper
 public interface LabSampleMapper {
@@ -31,5 +33,12 @@ public interface LabSampleMapper {
 	 * cập nhật: 0 nghĩa là người khác vừa đổi trạng thái trước.
 	 */
 	int updateStatus(StatusChange change);
+
+	/**
+	 * Kết luận mẫu (BR-11): như {@link #updateStatus}, nhưng ghi cùng lúc kết luận và thời điểm hoàn thành
+	 * ({@code change.changedAt()}), vì {@code ck_lab_sample_completed} (V5) không cho mẫu Hoàn thành thiếu hai cột
+	 * đó. Trả về số dòng được cập nhật: 0 nghĩa là mẫu không còn ở {@code change.fromStatus()}.
+	 */
+	int conclude(@Param("change") StatusChange change, @Param("conclusion") Verdict conclusion);
 
 }

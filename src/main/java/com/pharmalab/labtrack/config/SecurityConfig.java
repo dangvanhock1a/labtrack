@@ -34,7 +34,7 @@ public class SecurityConfig {
 	 * <p>
 	 * Duyệt/từ chối kết quả chỉ dành cho {@code REVIEWER} (BR-08, SPEC-004 R9). {@code *} chỉ khớp một
 	 * đoạn đường dẫn, nên {@code /samples/*}{@code /results} không khớp {@code /samples/1/results/2/approve}
-	 * và hai luật không chồng nhau. Kết luận mẫu chưa có URL, nên vẫn rơi vào {@code denyAll()}.
+	 * và hai luật không chồng nhau. Kết luận mẫu cũng chỉ dành cho {@code REVIEWER} (BR-11, ma trận mục 9).
 	 */
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -51,6 +51,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.POST, "/samples/*/cancel").hasAnyRole(RECEPTIONIST.name(), REVIEWER.name())
 				.requestMatchers(HttpMethod.POST, "/samples/*/results/*/approve", "/samples/*/results/*/reject")
 				.hasRole(REVIEWER.name())
+				.requestMatchers(HttpMethod.POST, "/samples/*/conclude").hasRole(REVIEWER.name())
 				.requestMatchers(HttpMethod.GET, "/samples", "/samples/*").authenticated()
 				.anyRequest().denyAll())
 			// /login đã permitAll ở luật đầu, nên không gọi permitAll() của formLogin nữa.

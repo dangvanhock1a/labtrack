@@ -280,6 +280,43 @@ class AccessControlTests {
 		verifyNoInteractions(resultService);
 	}
 
+	@ParameterizedTest(name = "[{index}] {0}: được kết luận = {1}")
+	@DisplayName("TC-BR12-18 Kết luận mẫu: chỉ Người duyệt qua lớp bảo mật, các vai trò khác nhận 403")
+	@CsvSource(textBlock = """
+			REVIEWER,       true
+			ANALYST,        false
+			RECEPTIONIST,   false
+			MANAGER,        false
+			""")
+	void concludeOnlyForReviewer(UserRole role, boolean allowed) throws Exception {
+		LabSample concluded = receivedSample();
+		concluded.setStatus(SampleStatus.COMPLETED);
+		concluded.setConclusion(Verdict.PASS);
+		when(sampleService.conclude(SAMPLE_ID, "nguoidung")).thenReturn(concluded);
+
+		mockMvc.perform(post("/samples/{id}/conclude", SAMPLE_ID)
+				.with(user(principal("nguoidung", "Người dùng thử", role)))
+				.with(csrf()))
+			.andExpect(allowed ? redirectedUrl("/samples/42") : status().isForbidden());
+
+		if (!allowed) {
+			verifyNoInteractions(sampleService);
+		}
+	}
+
+	@Test
+	@DisplayName("TC-BR12-19 Kết luận mẫu: chưa đăng nhập thì về trang đăng nhập; thiếu CSRF token thì 403, kể cả Người duyệt")
+	void concludeRequiresLoginAndCsrf() throws Exception {
+		mockMvc.perform(post("/samples/{id}/conclude", SAMPLE_ID).with(csrf()))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string(HttpHeaders.LOCATION, endsWith("/login")));
+		mockMvc.perform(post("/samples/{id}/conclude", SAMPLE_ID)
+				.with(user(principal("duyet", "Hoàng Văn Duy", UserRole.REVIEWER))))
+			.andExpect(status().isForbidden());
+
+		verifyNoInteractions(sampleService);
+	}
+
 	@ParameterizedTest(name = "[{index}] /login?{0}")
 	@DisplayName("TC-BR12-10 Trang đăng nhập báo bằng tiếng Việt khi sai thông tin hoặc vừa đăng xuất")
 	@CsvSource({ "error, Tên đăng nhập hoặc mật khẩu không đúng", "logout, Bạn đã đăng xuất" })

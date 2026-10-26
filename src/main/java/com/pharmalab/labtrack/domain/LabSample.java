@@ -28,6 +28,11 @@ public class LabSample {
 
 	private OffsetDateTime updatedAt;
 
+	/** BR-11: để trống tới khi mẫu được kết luận; cùng có hay cùng trống với {@code completedAt} (V5). */
+	private Verdict conclusion;
+
+	private OffsetDateTime completedAt;
+
 	public Long getId() {
 		return id;
 	}
@@ -114,6 +119,22 @@ public class LabSample {
 
 	public void setUpdatedAt(OffsetDateTime updatedAt) {
 		this.updatedAt = updatedAt;
+	}
+
+	public Verdict getConclusion() {
+		return conclusion;
+	}
+
+	public void setConclusion(Verdict conclusion) {
+		this.conclusion = conclusion;
+	}
+
+	public OffsetDateTime getCompletedAt() {
+		return completedAt;
+	}
+
+	public void setCompletedAt(OffsetDateTime completedAt) {
+		this.completedAt = completedAt;
 	}
 
 }

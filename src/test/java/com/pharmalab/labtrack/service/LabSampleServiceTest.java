@@ -14,6 +14,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,12 +25,16 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.ResultStatus;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.TestResult;
+import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
+import com.pharmalab.labtrack.persistence.TestResultMapper;
 
-/** Đổi trạng thái mẫu: nhận kiểm nghiệm (BR-03) và hủy mẫu (BR-05). */
+/** Đổi trạng thái mẫu: nhận kiểm nghiệm (BR-03), hủy mẫu (BR-05) và kết luận mẫu (BR-11). */
 class LabSampleServiceTest {
 
 	/** 09:00 ngày 07/10/2026 giờ VN. */
@@ -43,7 +49,9 @@ class LabSampleServiceTest {
 
 	private final StatusHistoryMapper historyMapper = mock(StatusHistoryMapper.class);
 
-	private final LabSampleService service = new LabSampleService(sampleMapper, historyMapper,
+	private final TestResultMapper resultMapper = mock(TestResultMapper.class);
+
+	private final LabSampleService service = new LabSampleService(sampleMapper, historyMapper, resultMapper,
 			mock(SampleCodeGenerator.class), CLOCK);
 
 	private void givenSampleIn(SampleStatus status) {
@@ -165,6 +173,128 @@ class LabSampleServiceTest {
 		assertThatThrownBy(() -> service.startTesting(SAMPLE_ID, "kiemnghiem1"))
 			.isInstanceOf(BusinessException.class);
 		// Chứng minh câu insert nằm SAU cửa kiểm tra số dòng, không chỉ dựa vào rollback.
+		verifyNoInteractions(historyMapper);
+	}
+
+	// ---- Kết luận mẫu (BR-11) ----
+
+	/** Kết luận khóa dòng mẫu bằng lockById (SPEC-004 R14), nên mock findById không đủ để có mẫu. */
+	private void givenLockedSampleIn(SampleStatus status) {
+		LabSample sample = new LabSample();
+		sample.setId(SAMPLE_ID);
+		sample.setCode("LS-2026-00042");
+		sample.setStatus(status);
+		when(sampleMapper.lockById(SAMPLE_ID)).thenReturn(Optional.of(sample));
+	}
+
+	private void givenResults(List<TestResult> results) {
+		when(resultMapper.findBySample(SAMPLE_ID)).thenReturn(results);
+	}
+
+	private static TestResult result(ResultStatus status, Verdict verdict) {
+		TestResult result = new TestResult();
+		result.setSampleId(SAMPLE_ID);
+		result.setStatus(status);
+		result.setVerdict(verdict);
+		return result;
+	}
+
+	private static StatusChange conclusionChange(String reason) {
+		return new StatusChange(SAMPLE_ID, SampleStatus.IN_TESTING, SampleStatus.COMPLETED, reason, "duyet", NOW);
+	}
+
+	@ParameterizedTest(name = "[{index}] số bản bị từ chối = {0}")
+	@ValueSource(ints = { 0, 2 })
+	@DisplayName("TC-BR11-01 Chưa có kết quả hiệu lực nào (không có kết quả, hoặc chỉ có bản bị từ chối) thì chưa kết luận được")
+	void concludeRequiresAnEffectiveResult(int rejectedCount) {
+		givenLockedSampleIn(SampleStatus.IN_TESTING);
+		givenResults(Collections.nCopies(rejectedCount, result(ResultStatus.REJECTED, Verdict.PASS)));
+
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getCode()).isEqualTo("NO_RESULTS");
+				assertThat(ex.getField()).isNull();
+				assertThat(ex).hasMessage("Mẫu chưa có kết quả nào nên chưa thể kết luận");
+			});
+		verify(sampleMapper, never()).conclude(any(), any());
+		verifyNoInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR11-02 Còn kết quả hiệu lực Chờ duyệt thì chưa kết luận được, dù các kết quả khác đã duyệt")
+	void concludeRequiresEveryEffectiveResultApproved() {
+		givenLockedSampleIn(SampleStatus.IN_TESTING);
+		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.PENDING, Verdict.PASS)));
+
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getCode()).isEqualTo("RESULTS_PENDING");
+				assertThat(ex).hasMessage("Còn kết quả chưa được duyệt nên chưa thể kết luận");
+			});
+		verify(sampleMapper, never()).conclude(any(), any());
+		verifyNoInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR11-03 Mọi kết quả hiệu lực Đạt thì kết luận Đạt, bản bị từ chối Không đạt không tính; UPDATE và dòng lịch sử dùng cùng một lần chuyển")
+	void concludePassIgnoringRejectedResults() {
+		givenLockedSampleIn(SampleStatus.IN_TESTING);
+		givenResults(List.of(result(ResultStatus.REJECTED, Verdict.FAIL), result(ResultStatus.APPROVED, Verdict.PASS),
+				result(ResultStatus.APPROVED, Verdict.PASS)));
+		when(sampleMapper.conclude(any(), any())).thenReturn(1);
+
+		LabSample concluded = service.conclude(SAMPLE_ID, "duyet");
+
+		StatusChange change = conclusionChange("Kết luận: Đạt");
+		verify(sampleMapper).conclude(change, Verdict.PASS);
+		verify(historyMapper).insert(change);
+		verifyNoMoreInteractions(historyMapper);
+		assertThat(concluded.getStatus()).isEqualTo(SampleStatus.COMPLETED);
+		assertThat(concluded.getConclusion()).isEqualTo(Verdict.PASS);
+		assertThat(concluded.getCompletedAt()).isEqualTo(NOW);
+		assertThat(concluded.getUpdatedAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	@DisplayName("TC-BR11-04 Có một kết quả hiệu lực Không đạt thì kết luận Không đạt")
+	void concludeFailWhenAnyEffectiveResultFails() {
+		givenLockedSampleIn(SampleStatus.IN_TESTING);
+		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.APPROVED, Verdict.FAIL)));
+		when(sampleMapper.conclude(any(), any())).thenReturn(1);
+
+		LabSample concluded = service.conclude(SAMPLE_ID, "duyet");
+
+		StatusChange change = conclusionChange("Kết luận: Không đạt");
+		verify(sampleMapper).conclude(change, Verdict.FAIL);
+		verify(historyMapper).insert(change);
+		assertThat(concluded.getConclusion()).isEqualTo(Verdict.FAIL);
+	}
+
+	@Test
+	@DisplayName("TC-BR11-05 Mẫu chưa nhận kiểm nghiệm thì không kết luận được: báo theo bảng chuyển BR-03, không đọc kết quả")
+	void concludeRejectsSampleNotInTesting() {
+		givenLockedSampleIn(SampleStatus.RECEIVED);
+
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+			.isInstanceOf(InvalidStatusTransitionException.class)
+			.hasMessage("Không thể chuyển mẫu từ \"Đã tiếp nhận\" sang \"Hoàn thành\"");
+		verifyNoInteractions(resultMapper);
+		verify(sampleMapper, never()).conclude(any(), any());
+		verifyNoInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR11-06 UPDATE kết luận khớp 0 dòng thì yêu cầu tải lại trang và không ghi dòng lịch sử")
+	void concludeReportsConcurrentUpdate() {
+		givenLockedSampleIn(SampleStatus.IN_TESTING);
+		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS)));
+		when(sampleMapper.conclude(any(), any())).thenReturn(0);
+
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getCode()).isEqualTo("CONCURRENT_UPDATE");
+				assertThat(ex).hasMessage("Mẫu vừa được người khác cập nhật, hãy tải lại trang");
+			});
 		verifyNoInteractions(historyMapper);
 	}
 
