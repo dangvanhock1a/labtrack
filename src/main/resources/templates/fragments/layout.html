@@ -32,9 +32,11 @@
 	</div>
 </nav>
 
+<!-- Nút đóng cần bootstrap.bundle (fragment scripts) trên trang. Chữ và nút nằm liền trên một dòng để chữ của
+	 thẻ đúng bằng câu thông báo: E2E so khớp nguyên văn qua data-testid. -->
 <th:block th:fragment="flash">
-	<div th:if="${message}" class="alert alert-success" role="status" data-testid="flash-success" th:text="${message}"></div>
-	<div th:if="${error}" class="alert alert-danger" role="alert" data-testid="flash-error" th:text="${error}"></div>
+	<div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="status" data-testid="flash-success"><span th:text="${message}"></span><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button></div>
+	<div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert" data-testid="flash-error"><span th:text="${error}"></span><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button></div>
 </th:block>
 
 <!-- Nhãn trạng thái mẫu (BR-03): màu đi theo bước trong quy trình, không phải theo mức độ lỗi. -->
@@ -52,7 +54,7 @@
 						 REJECTED: 'text-bg-secondary'} }"
 	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Chờ duyệt</span>
 
-<!-- Đánh giá do hệ thống tính (BR-07): Đạt xanh lá, Không đạt đỏ. -->
+<!-- Đánh giá do hệ thống tính (BR-07) và kết luận mẫu (BR-11): Đạt xanh lá, Không đạt đỏ. -->
 <span th:fragment="verdictBadge(verdict)" class="badge"
 	  th:classappend="${verdict.name() == 'PASS'} ? 'text-bg-success' : 'text-bg-danger'"
 	  th:text="${verdict.label}">Đạt</span>

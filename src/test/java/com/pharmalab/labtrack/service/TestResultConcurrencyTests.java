@@ -28,6 +28,7 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.TestResult;
+import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.TestParameterMapper;
 
 /**
@@ -76,6 +77,10 @@ class TestResultConcurrencyTests {
 
 	private NewResult ph(String value) {
 		return new NewResult(parameterMapper.findByCode("PH").orElseThrow().getId(), new BigDecimal(value));
+	}
+
+	private NewResult assay(String value) {
+		return new NewResult(parameterMapper.findByCode("ASSAY").orElseThrow().getId(), new BigDecimal(value));
 	}
 
 	/**
@@ -244,6 +249,43 @@ class TestResultConcurrencyTests {
 		assertThat(jdbcTemplate.queryForList("SELECT status FROM test_result WHERE sample_id = ?", String.class,
 				sampleId)).containsExactly("APPROVED");
 		assertThat(auditRows(sampleId, "APPROVE", "REJECT")).isEqualTo(1);
+	}
+
+	/**
+	 * Lớp chặn duy nhất của trường hợp này là khóa dòng mẫu trong {@code conclude}: nhập kết quả không đổi
+	 * {@code lab_sample.status}, nên {@code UPDATE … WHERE status = 'IN_TESTING'} vẫn khớp. Thay {@code lockById}
+	 * bằng {@code findById} thì kết luận chỉ chờ ở câu UPDATE, rồi Hoàn thành mẫu đang có pH Chờ duyệt.
+	 */
+	@Test
+	@DisplayName("TC-BR11-12 Đang nhập pH thì kết luận mẫu phải chờ khóa; nhập xong, kết luận thấy kết quả Chờ duyệt mới nên bị chặn, mẫu vẫn Đang kiểm nghiệm")
+	void conclusionWaitsForResultEntryAndSeesNewPendingResult() throws Exception {
+		long sampleId = sampleInTesting();
+		TestResult assayResult = resultService.enter(sampleId, assay("98.5"), "kiemnghiem1");
+		resultService.approve(sampleId, assayResult.getId(), "duyet");
+		CountDownLatch release = new CountDownLatch(1);
+		Future<TestResult> entry;
+		Future<LabSample> conclusion;
+		try {
+			entry = holdingTransaction(() -> resultService.enter(sampleId, ph("6.2"), "kiemnghiem1"), release);
+			// Hộp thoại đã hiện Đạt (chỉ có ASSAY Đạt); pH 6.2 cũng Đạt, nên chỉ điều kiện Chờ duyệt mới chặn được.
+			conclusion = executor.submit(() -> sampleService.conclude(sampleId, Verdict.PASS, "duyet"));
+			awaitWaitingForLock();
+			assertThat(conclusion.isDone()).isFalse();
+		}
+		finally {
+			release.countDown();
+		}
+
+		get(entry);
+		assertThat(failureOf(conclusion)).isInstanceOfSatisfying(BusinessException.class, ex -> {
+			assertThat(ex.getCode()).isEqualTo("RESULTS_PENDING");
+			assertThat(ex).hasMessage("Còn kết quả chưa được duyệt nên chưa thể kết luận");
+		});
+		assertThat(jdbcTemplate.queryForObject("SELECT status FROM lab_sample WHERE id = ?", String.class, sampleId))
+			.isEqualTo("IN_TESTING");
+		assertThat(jdbcTemplate.queryForObject(
+				"SELECT count(*) FROM sample_status_history WHERE sample_id = ? AND to_status = 'COMPLETED'",
+				Integer.class, sampleId)).isZero();
 	}
 
 }

@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### Git Bash trên Windows ghi file này khi bash.exe crash ###
+*.stackdump
+
 .env
 .env.local
 secrets/

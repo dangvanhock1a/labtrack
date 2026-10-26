@@ -641,4 +641,24 @@ class SampleControllerTests {
 			.andExpect(flash().attribute("message", "Đã từ chối kết quả pH"));
 	}
 
+	@Test
+	@DisplayName("TC-BR11-11 Hộp thoại kết luận gửi kèm kết luận nó hiện; controller chuyển đúng kết luận đó xuống service, flash Đã kết luận mẫu: Không đạt")
+	void concludeFormCarriesShownVerdictToService() throws Exception {
+		givenSampleIn(SampleStatus.IN_TESTING);
+		givenSheet(new ResultSheetRow(ph(),
+				result(12L, ph(), "7.5", Verdict.FAIL, ResultStatus.APPROVED, "kiemnghiem1", 1), List.of()));
+
+		assertThat(tagContaining(detailPage(), "name=\"expectedVerdict\"")).contains("type=\"hidden\"")
+			.contains("value=\"FAIL\"");
+
+		LabSample concluded = sampleIn(SampleStatus.COMPLETED);
+		concluded.setConclusion(Verdict.FAIL);
+		when(sampleService.conclude(SAMPLE_ID, Verdict.FAIL, "duyet")).thenReturn(concluded);
+
+		mockMvc.perform(post("/samples/{id}/conclude", SAMPLE_ID).with(csrf()).param("expectedVerdict", "FAIL"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"))
+			.andExpect(flash().attribute("message", "Đã kết luận mẫu: Không đạt"));
+	}
+
 }

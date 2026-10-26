@@ -15,8 +15,10 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.StatusHistory;
+import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
+import com.pharmalab.labtrack.persistence.TestResultMapper;
 
 @Service
 public class LabSampleService {
@@ -30,18 +32,24 @@ public class LabSampleService {
 	/** Lý do của dòng lịch sử lúc đăng ký: không do người dùng nhập nên là nhãn cố định (BR-04). */
 	static final String REGISTER_REASON = "Đăng ký mẫu";
 
+	/** Lý do của dòng lịch sử lúc kết luận, nối với nhãn Đạt/Không đạt (BR-04, BR-11). */
+	static final String CONCLUSION_REASON_PREFIX = "Kết luận: ";
+
 	private final LabSampleMapper sampleMapper;
 
 	private final StatusHistoryMapper historyMapper;
+
+	private final TestResultMapper resultMapper;
 
 	private final SampleCodeGenerator codeGenerator;
 
 	private final Clock clock;
 
 	public LabSampleService(LabSampleMapper sampleMapper, StatusHistoryMapper historyMapper,
-			SampleCodeGenerator codeGenerator, Clock clock) {
+			TestResultMapper resultMapper, SampleCodeGenerator codeGenerator, Clock clock) {
 		this.sampleMapper = sampleMapper;
 		this.historyMapper = historyMapper;
+		this.resultMapper = resultMapper;
 		this.codeGenerator = codeGenerator;
 		this.clock = clock;
 	}
@@ -126,6 +134,46 @@ public class LabSampleService {
 	}
 
 	/**
+	 * Kết luận mẫu: Đang kiểm nghiệm → Hoàn thành, kèm kết luận Đạt/Không đạt (BR-11). Khóa dòng mẫu trước khi đọc
+	 * kết quả (SPEC-004 D9, R14): nhập, duyệt, từ chối kết quả cũng khóa dòng này, nên không ai thêm hay đổi kết quả
+	 * được giữa lúc xét điều kiện và lúc ghi; không khóa thì mẫu có thể Hoàn thành khi vừa có một kết quả Chờ duyệt
+	 * mới. Điều kiện về kết quả và kết luận tính bằng {@link ConclusionReadiness}, cùng hàm trang chi tiết dùng để
+	 * bật nút. {@code expectedVerdict} là kết luận hộp thoại đã hiện cho người duyệt: kết quả có thể đổi trong lúc
+	 * hộp thoại mở, nên tính lại ra khác thì từ chối, không lưu một kết luận người bấm chưa thấy, vì Hoàn thành không
+	 * sửa lại được. Câu UPDATE kèm trạng thái cũ chặn lần nữa, như {@link #changeStatus}; với khóa thì nó luôn khớp.
+	 * Kết luận, thời điểm hoàn thành và dòng lịch sử lấy từ cùng một {@link StatusChange} (BR-04).
+	 */
+	@Transactional
+	public LabSample conclude(long id, Verdict expectedVerdict, String actor) {
+		LabSample sample = sampleMapper.lockById(id)
+			.map(this::toClockZone)
+			.orElseThrow(() -> new BusinessException("SAMPLE_NOT_FOUND", null, "Không tìm thấy mẫu"));
+		SampleStatus fromStatus = sample.getStatus();
+		if (!fromStatus.canTransitionTo(SampleStatus.COMPLETED)) {
+			throw new InvalidStatusTransitionException(fromStatus, SampleStatus.COMPLETED);
+		}
+		ConclusionReadiness readiness = ConclusionReadiness.of(resultMapper.findBySample(id));
+		if (!readiness.ready()) {
+			throw readiness.toException();
+		}
+		if (readiness.verdict() != expectedVerdict) {
+			throw new BusinessException("CONCLUSION_CHANGED", null, "Kết quả của mẫu vừa thay đổi nên kết luận bây giờ là \""
+					+ readiness.verdict().getLabel() + "\"; hãy xem lại rồi kết luận lại");
+		}
+		StatusChange change = new StatusChange(id, fromStatus, SampleStatus.COMPLETED,
+				CONCLUSION_REASON_PREFIX + readiness.verdict().getLabel(), actor, OffsetDateTime.now(clock));
+		if (sampleMapper.conclude(change, readiness.verdict()) == 0) {
+			throw concurrentUpdate();
+		}
+		historyMapper.insert(change);
+		sample.setStatus(SampleStatus.COMPLETED);
+		sample.setConclusion(readiness.verdict());
+		sample.setCompletedAt(change.changedAt());
+		sample.setUpdatedAt(change.changedAt());
+		return sample;
+	}
+
+	/**
 	 * Đổi trạng thái một mẫu (BR-03). Bảng chuyển trong {@link SampleStatus} chặn trước để báo
 	 * lỗi rõ ràng; câu UPDATE kèm trạng thái cũ chặn lần nữa, nên khi hai người bấm cùng lúc chỉ
 	 * một người đổi được, người còn lại cập nhật 0 dòng và được yêu cầu tải lại trang.
@@ -142,13 +190,17 @@ public class LabSampleService {
 		StatusChange change = new StatusChange(id, fromStatus, toStatus, reason, actor,
 				OffsetDateTime.now(clock));
 		if (sampleMapper.updateStatus(change) == 0) {
-			throw new BusinessException("CONCURRENT_UPDATE", null,
-					"Mẫu vừa được người khác cập nhật, hãy tải lại trang");
+			throw concurrentUpdate();
 		}
 		historyMapper.insert(change);
 		sample.setStatus(toStatus);
 		sample.setUpdatedAt(change.changedAt());
 		return sample;
+	}
+
+	/** BR-03: câu UPDATE kèm trạng thái cũ khớp 0 dòng, tức người khác vừa đổi trạng thái trước. */
+	private static BusinessException concurrentUpdate() {
+		return new BusinessException("CONCURRENT_UPDATE", null, "Mẫu vừa được người khác cập nhật, hãy tải lại trang");
 	}
 
 	private LocalDateTime now() {
@@ -160,6 +212,7 @@ public class LabSampleService {
 		sample.setReceivedAt(inClockZone(sample.getReceivedAt()));
 		sample.setCreatedAt(inClockZone(sample.getCreatedAt()));
 		sample.setUpdatedAt(inClockZone(sample.getUpdatedAt()));
+		sample.setCompletedAt(inClockZone(sample.getCompletedAt()));
 		return sample;
 	}
 

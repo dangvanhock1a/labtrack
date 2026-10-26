@@ -1,0 +1,35 @@
+# Review LT-102: kết luận mẫu (BR-11)
+
+Nguồn: `/code-review medium main...HEAD` trên nhánh `feature/LT-102-ket-luan` (HEAD `944256a`), ngày 26/10/2026. Mỗi finding đã được đối chiếu với code, `docs/SPEC-004.md`, `docs/cau-hoi-lam-ro.md` và lịch sử git.
+
+Tổng: nhận 5 (1, 5, 7, 8, 9), bỏ 4 (2, 3, 4, 6).
+
+| # | Finding (file:dòng) | Thuộc loại | Nhận / Bỏ | Lý do |
+|---|---|---|---|---|
+| 1 | `SampleController.java:155`: form kết luận không gửi kèm kết luận đã hiện trong hộp thoại; service tính lại rồi lưu kết quả mới tính | Tính đúng | Nhận | Lỗi có thật. Hộp thoại hiện kết luận tính lúc mở trang, còn `conclude` tính lại sau khi khóa mẫu. Trong khoảng đó, một chỉ tiêu còn trống có thể được nhập rồi được người duyệt khác duyệt, và mẫu bị lưu một kết luận mà người bấm chưa thấy. Hoàn thành là trạng thái kết thúc nên không sửa lại được. Cách sửa: form gửi kèm kết luận đã hiện; service so với bản tính lại sau khi khóa, khác thì báo lỗi và không lưu. |
+| 2 | `detail.html:47`: nút Kết luận mẫu vẫn bật khi còn chỉ tiêu đang dùng chưa có kết quả | Yêu cầu | Bỏ | Code làm đúng chữ BR-11 và SPEC-004 D8 ("Không có bộ chỉ tiêu bắt buộc theo mẫu"), cũng là mặc định ở câu hỏi mở 6.1 của SPEC-004. Muốn đổi hành vi thì phải có câu trả lời cho câu hỏi số 8 trong `docs/cau-hoi-lam-ro.md`; đó là việc của nghiệp vụ, CLAUDE.md không cho tự quyết. Điểm này đã ghi ở rủi ro 6 của kế hoạch LT-102. Xử lý: chuyển thành câu hỏi cho nghiệp vụ, không sửa code. |
+| 3 | `LabSampleService.java:144`: `conclude` lặp lại luồng của `changeStatus` | Style | Bỏ | Hai luồng khác nhau đúng ở chỗ quan trọng. `conclude` phải khóa mẫu trước khi đọc kết quả (SPEC-004 R14) và đổi `status`, `conclusion`, `completed_at` trong một câu UPDATE (`ck_lab_sample_completed`). `changeStatus` thì theo R14 không khóa. Gộp lại phải thêm cờ hoặc callback, khó đọc hơn khoảng 20 dòng trùng. Phần dùng chung đã tách thành `concurrentUpdate()`. |
+| 4 | `LabSampleService.java:177`: `cancel`/`changeStatus` đọc mẫu bằng `findById`, không khóa dòng | "phòng thủ thừa" | Bỏ | Chính reviewer xác nhận kết quả vẫn đúng: UPDATE `WHERE status = <cũ>` trả 0 dòng thì báo `CONCURRENT_UPDATE`. SPEC-004 R14 thiết kế đúng như vậy: thao tác kết quả khóa dòng mẫu, còn UPDATE của hủy mẫu chờ khóa đó. Đoạn code này có từ trước LT-102 nên nằm ngoài phạm vi. |
+| 5 | `SampleConclusionIntegrationTests.java:50`: không có test đồng thời cho khóa mẫu của `conclude` (SPEC-004 R14) | Tính đúng | Nhận | Khóa là lớp duy nhất chặn trường hợp mẫu thành Hoàn thành ngay khi vừa có kết quả Chờ duyệt mới. Nhập kết quả không đổi `lab_sample.status`, nên `WHERE status = 'IN_TESTING'` không bắt được. Unit test chỉ mock `lockById`, nên đổi sang `findById` thì mọi test vẫn xanh. Cách sửa: thêm test hai luồng trên PostgreSQL thật như `TestResultConcurrencyTests`, không có transaction bao ngoài và chỉ đếm dữ liệu do chính test tạo. |
+| 6 | `V5__add_conclusion_to_lab_sample.sql:8`: thêm `ck_lab_sample_completed` mà không xử lý dòng COMPLETED có sẵn | "phòng thủ thừa" | Bỏ | Trước V5 không có đường code nào đưa mẫu tới COMPLETED, vì chưa có URL kết luận. Trước khi áp V5 đã đếm: cả `labtrack` và `labtrack_test` đều có 0 dòng COMPLETED, và chưa có môi trường production. Backfill thì phải bịa ra kết luận, tức là đưa dữ liệu giả vào hồ sơ kiểm nghiệm; còn `NOT VALID` thì để lại những dòng vi phạm ràng buộc. Nếu có dòng như vậy, để migration báo lỗi là đúng. |
+| 7 | `bash.exe.stackdump:1`: cả hai commit đều sửa file dump lỗi của Git Bash | Style | Nhận | Đây là file rác của riêng máy, bị track nhầm từ commit `38fd5c0` (09/10/2026). Nhánh này lại thêm thay đổi vào nó; mỗi lần bash crash file đổi tiếp và gây conflict. Cách sửa: trong nhánh này, trả file về đúng như trên `main`; sau đó xóa khỏi repo (`git rm --cached`) và thêm vào `.gitignore` bằng một commit `chore` riêng. |
+| 8 | Commit `944256a` (reviewer gắn vào `detail.html:52`): trùng tiêu đề với `d565f13`, mã BR không nằm ở cuối | Style | Nhận | Đúng: `944256a` chỉ chỉnh bề rộng cột nhưng mang cùng tiêu đề `feat(sample): kết luận mẫu (BR-11, LT-102)`, trong khi CLAUDE.md yêu cầu mã BR ở cuối dòng tiêu đề. Cách sửa: gộp hai commit thành một với tiêu đề `feat(sample): kết luận mẫu Đạt/Không đạt khi mọi kết quả hiệu lực đã duyệt (BR-11)`. Nhánh đã có trên `origin`, nên gộp xong phải `git push --force-with-lease`, và cần người phụ trách nhánh đồng ý. |
+| 9 | `SampleController.java:125`: model `conclusion` chứa `ConclusionReadiness`, dễ nhầm với `sample.conclusion` (`Verdict`) | Style | Nhận | Trong `detail.html`, `${conclusion.verdict()}` (kết luận tính sẵn) đứng gần `${sample.conclusion}` (kết luận đã lưu). Đổi tên thành `conclusionReadiness` chỉ chạm controller và template; không test nào đọc tên model này. `data-testid="conclusion"` mà E2E dùng là chuyện khác và giữ nguyên. |
+
+## Kết quả xử lý
+
+| # | Commit | Đã làm | Test |
+|---|---|---|---|
+| 8 | `e706744` | Gộp `d565f13` và `944256a` thành một commit `feat(sample): … (BR-11)`. Trừ `bash.exe.stackdump`, cây file trùng hệt `944256a`. HEAD cũ được giữ ở nhánh `backup/LT-102-truoc-squash`. | |
+| 7 | `80d2cd2` | Commit feat không còn đụng tới `bash.exe.stackdump`; file được `git rm --cached`, và `.gitignore` thêm `*.stackdump`. File vẫn còn trên máy, git bỏ qua. | |
+| 9 | `86a1555` | Model `conclusion` đổi thành `conclusionReadiness` trong `SampleController` và `detail.html`. | `SampleControllerTests`, `AccessControlTests` xanh. Các test TC-BR08 dựng trang Đang kiểm nghiệm bằng vai trò Người duyệt nên có chạy qua tên mới. |
+| 1 | `8a0b97d` | Hộp thoại gửi trường ẩn `expectedVerdict`. `LabSampleService.conclude(id, expectedVerdict, actor)` so giá trị đó với kết luận tính lại sau khi khóa mẫu; khác thì báo `CONCLUSION_CHANGED` ("Kết quả của mẫu vừa thay đổi nên kết luận bây giờ là "…"; hãy xem lại rồi kết luận lại") và không ghi gì. Thiếu tham số thì Spring trả 400. | Viết trước và đã thấy đỏ: TC-BR11-09 (unit: luồng chạy tới UPDATE, ra `CONCURRENT_UPDATE` thay vì `CONCLUSION_CHANGED`) và TC-BR11-10 (PostgreSQL thật: không ném lỗi, mẫu bị lưu Không đạt). Thêm TC-BR11-11 cho trường ẩn và controller. Các test kết luận đã có chỉ thêm đối số kết luận, assertion giữ nguyên. |
+| 5 | `1ccf38a` | Thêm TC-BR11-12 vào `TestResultConcurrencyTests`: đang nhập pH thì kết luận phải chờ khóa; nhập xong, kết luận bị chặn `RESULTS_PENDING` và mẫu vẫn Đang kiểm nghiệm. | Đã thử tạm thay `lockById` bằng `findById` trong `conclude`: TC-BR11-12 đỏ ("luồng B phải thất bại", kết luận chạy được), 4 test đồng thời cũ vẫn xanh. Trả lại `lockById` thì xanh. |
+
+Không sửa #2, #3, #4, #6, theo lý do ở bảng trên:
+- **#2:** đúng BR-11 và SPEC-004 D8; đổi hành vi thì cần nghiệp vụ trả lời câu hỏi 8.
+- **#3:** hai luồng khác nhau ở chỗ khóa và câu UPDATE ba cột; gộp lại khó đọc hơn phần trùng.
+- **#4:** SPEC-004 R14 thiết kế hủy mẫu không khóa, chỉ chờ khóa của thao tác khác; đoạn này có từ trước LT-102.
+- **#6:** chưa từng có dòng COMPLETED nào; backfill thì phải bịa ra kết luận.
+
+Nhánh đã có trên `origin` ở `944256a`. Lịch sử đã viết lại nên cần `git push --force-with-lease` mới cập nhật được nhánh trên remote.

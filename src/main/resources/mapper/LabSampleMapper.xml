@@ -4,7 +4,7 @@
 
 	<sql id="columns">
 		id, code, product_name, batch_no, sample_type, status,
-		received_at, due_date, created_by, created_at, updated_at
+		received_at, due_date, created_by, created_at, updated_at, conclusion, completed_at
 	</sql>
 
 	<insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
@@ -46,6 +46,19 @@
 		SET status = #{toStatus}, updated_at = #{changedAt}
 		WHERE id = #{sampleId}
 		  AND status = #{fromStatus}
+	</update>
+
+	<!--
+		BR-11: cùng điều kiện status = trạng thái cũ như updateStatus (fromStatus luôn là IN_TESTING, trạng thái
+		duy nhất chuyển được sang COMPLETED). Ba cột status, conclusion, completed_at đổi trong một câu vì
+		ck_lab_sample_completed (V5) đòi chúng đi cùng nhau.
+	-->
+	<update id="conclude">
+		UPDATE lab_sample
+		SET status = #{change.toStatus}, conclusion = #{conclusion},
+		    completed_at = #{change.changedAt}, updated_at = #{change.changedAt}
+		WHERE id = #{change.sampleId}
+		  AND status = #{change.fromStatus}
 	</update>
 
 </mapper>
