@@ -43,10 +43,10 @@
 					 dùng để chặn. Như nút 4 mắt (BR-08): nút disabled không nhận hover nên tooltip gắn vào thẻ bọc có
 					 tabindex; câu lý do cũng hiện thành chữ nhỏ bên dưới cho màn hình cảm ứng. -->
 				<th:block th:if="${sample.status.name() == 'IN_TESTING'}" sec:authorize="hasRole('REVIEWER')"
-						  th:with="blocked=${!conclusion.ready()}">
+						  th:with="blocked=${!conclusionReadiness.ready()}">
 					<div class="d-inline-block"
 						 th:attr="tabindex=${blocked} ? '0' : null, data-bs-toggle=${blocked} ? 'tooltip' : null,
-								  data-bs-title=${blocked} ? ${conclusion.blockReason()} : null">
+								  data-bs-title=${blocked} ? ${conclusionReadiness.blockReason()} : null">
 						<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#concludeModal"
 								th:disabled="${blocked}"
 								th:attr="aria-describedby=${blocked} ? 'concludeBlocked' : null">Kết luận mẫu</button>
@@ -60,9 +60,9 @@
 
 				<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại danh sách</a>
 			</div>
-			<small th:if="${sample.status.name() == 'IN_TESTING' and !conclusion.ready()}" sec:authorize="hasRole('REVIEWER')"
+			<small th:if="${sample.status.name() == 'IN_TESTING' and !conclusionReadiness.ready()}" sec:authorize="hasRole('REVIEWER')"
 				   id="concludeBlocked" class="d-block mt-2 text-lg-end text-body-secondary"
-				   th:text="${conclusion.blockReason()}">Còn kết quả chưa được duyệt nên chưa thể kết luận</small>
+				   th:text="${conclusionReadiness.blockReason()}">Còn kết quả chưa được duyệt nên chưa thể kết luận</small>
 		</div>
 	</div>
 
@@ -306,7 +306,7 @@
 
 	<!-- BR-11: hộp thoại xác nhận chỉ có khi đủ điều kiện, như modal từ chối. Kết luận hiện ở đây là bản tính sẵn;
 		 khi gửi, tầng nghiệp vụ khóa mẫu rồi tính lại. -->
-	<div th:if="${sample.status.name() == 'IN_TESTING' and conclusion.ready()}" sec:authorize="hasRole('REVIEWER')"
+	<div th:if="${sample.status.name() == 'IN_TESTING' and conclusionReadiness.ready()}" sec:authorize="hasRole('REVIEWER')"
 		 class="modal fade" id="concludeModal" tabindex="-1" aria-labelledby="concludeModalTitle" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
 			<form class="modal-content" method="post" th:action="@{/samples/{id}/conclude(id=${sample.id})}">
@@ -316,7 +316,7 @@
 				</div>
 				<div class="modal-body">
 					<p class="mb-2">Kết luận:
-						<span th:replace="~{fragments/layout :: verdictBadge(${conclusion.verdict()})}"></span>
+						<span th:replace="~{fragments/layout :: verdictBadge(${conclusionReadiness.verdict()})}"></span>
 					</p>
 					<div class="form-text">Mẫu chuyển sang Hoàn thành; sau đó không nhập, duyệt kết quả hay hủy mẫu được nữa.</div>
 				</div>

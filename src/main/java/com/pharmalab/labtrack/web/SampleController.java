@@ -122,7 +122,7 @@ public class SampleController {
 		model.addAttribute("resultSheet", resultSheet);
 		model.addAttribute("resultAudit", resultService.findAudit(id));
 		// BR-11: nút Kết luận mẫu chỉ đọc kết quả này, cùng hàm mà LabSampleService.conclude dùng để chặn.
-		model.addAttribute("conclusion", ConclusionReadiness.ofSheet(resultSheet));
+		model.addAttribute("conclusionReadiness", ConclusionReadiness.ofSheet(resultSheet));
 		return "samples/detail";
 	}
 
