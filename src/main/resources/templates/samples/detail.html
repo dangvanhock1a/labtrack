@@ -133,7 +133,7 @@
 							<tbody data-testid="result-table">
 							<th:block th:each="row : ${resultSheet}" th:with="p=${row.parameter()}, r=${row.effective()}">
 								<tr>
-									<th scope="row" class="fw-normal" style="min-width: 9rem">
+									<th scope="row" class="fw-normal" style="min-width: 8rem">
 										<span th:text="${p.name}">pH</span>
 										<span th:unless="${p.active}" class="badge text-bg-light">Ngừng sử dụng</span>
 									</th>
@@ -152,7 +152,7 @@
 												   th:text="|Giá trị ${p.name} (${p.unit})|">Giá trị pH (pH)</label>
 											<div class="input-group input-group-sm flex-nowrap">
 												<input type="number" class="form-control" th:id="|value-${p.id}|" name="value"
-													   min="0" step="0.0001" inputmode="decimal" required style="min-width: 7rem"
+													   min="0" step="0.0001" inputmode="decimal" required style="min-width: 6rem"
 													   th:classappend="${errorParameterId == p.id} ? 'is-invalid'">
 												<span class="input-group-text" th:text="${p.unit}">pH</span>
 												<button type="submit" class="btn btn-primary">Lưu</button>
@@ -200,7 +200,7 @@
 												   th:text="${fourEyesNote}">Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)</small>
 										</th:block>
 									</td>
-									<td data-testid="result-entered" style="min-width: 8.5rem" th:text="${r != null} ? |${r.enteredBy} · ${@fmt.dateTime(r.enteredAt)}|"></td>
+									<td class="small" data-testid="result-entered" style="min-width: 7.5rem" th:text="${r != null} ? |${r.enteredBy} · ${@fmt.dateTime(r.enteredAt)}|"></td>
 								</tr>
 								<!-- BR-09: bản bị từ chối được giữ lại và hiện gạch ngang dưới chỉ tiêu, kèm người từ chối và lý do. -->
 								<tr th:each="old : ${row.rejected()}" class="small" data-testid="rejected-result">
