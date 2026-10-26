@@ -14,8 +14,5 @@ paths:
 - Được 1 dòng → ghi chính `StatusChange` đó vào `sample_status_history` trong cùng transaction (BR-04); không dựng lại thời điểm hay người thực hiện.
 - Đăng ký ghi 1 dòng lịch sử với `from_status = null`, `to_status = RECEIVED` (`ck_status_history_new`).
 - Kết luận (BR-11) khác `changeStatus`: khóa mẫu bằng `lockById` trước khi đọc kết quả (SPEC-004 R14). Điều kiện và kết luận chỉ tính ở `ConclusionReadiness`; ba cột `status`, `conclusion`, `completed_at` đổi trong một câu `conclude` (`ck_lab_sample_completed`, V5).
-<<<<<<< HEAD
 - `conclude` nhận `expectedVerdict` (trường ẩn của hộp thoại): tính lại sau khi khóa ra khác thì `CONCLUSION_CHANGED`, không lưu. Sai: bỏ tham số này rồi lưu kết luận tính lại, vì người duyệt sẽ Hoàn thành một kết luận chưa thấy.
-=======
->>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 - Lý do hủy dài 5–500 ký tự sau khi cắt khoảng trắng, chặn ở `<textarea minlength="5" maxlength="500" required>`, ở service (`REASON_REQUIRED`) và ở CSDL (`ck_status_history_reason`, `ck_status_history_cancel_reason`).

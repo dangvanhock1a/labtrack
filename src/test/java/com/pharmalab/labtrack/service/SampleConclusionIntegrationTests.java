@@ -1,10 +1,7 @@
 package com.pharmalab.labtrack.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-<<<<<<< HEAD
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-=======
->>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
@@ -63,11 +60,7 @@ class SampleConclusionIntegrationTests {
 		resultService.approve(id, assay.getId(), "duyet");
 		resultService.approve(id, ph.getId(), "duyet");
 
-<<<<<<< HEAD
 		LabSample concluded = sampleService.conclude(id, Verdict.FAIL, "duyet");
-=======
-		LabSample concluded = sampleService.conclude(id, "duyet");
->>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 
 		assertThat(concluded.getStatus()).isEqualTo(SampleStatus.COMPLETED);
 		assertThat(concluded.getConclusion()).isEqualTo(Verdict.FAIL);
@@ -88,7 +81,6 @@ class SampleConclusionIntegrationTests {
 		assertThat(history.get(2).getChangedAt()).isEqualTo(stored.getCompletedAt());
 	}
 
-<<<<<<< HEAD
 	@Test
 	@DisplayName("TC-BR11-10 Hộp thoại hiện Đạt; trong lúc nó mở, pH Không đạt được nhập và được duyet2 duyệt: kết luận Đạt bị từ chối, mẫu vẫn Đang kiểm nghiệm, không thêm dòng lịch sử")
 	void concludeRejectsVerdictThatChangedWhileDialogWasOpen() {
@@ -115,6 +107,4 @@ class SampleConclusionIntegrationTests {
 		assertThat(sampleService.findStatusHistory(id)).hasSize(2);
 	}
 
-=======
->>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 }
