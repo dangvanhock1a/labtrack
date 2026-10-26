@@ -123,7 +123,11 @@ public class SampleController {
 		model.addAttribute("resultSheet", resultSheet);
 		model.addAttribute("resultAudit", resultService.findAudit(id));
 		// BR-11: nút Kết luận mẫu chỉ đọc kết quả này, cùng hàm mà LabSampleService.conclude dùng để chặn.
+<<<<<<< HEAD
 		model.addAttribute("conclusionReadiness", ConclusionReadiness.ofSheet(resultSheet));
+=======
+		model.addAttribute("conclusion", ConclusionReadiness.ofSheet(resultSheet));
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 		return "samples/detail";
 	}
 
@@ -146,6 +150,15 @@ public class SampleController {
 			RedirectAttributes redirectAttributes) {
 		LabSample sample = sampleService.cancel(id, reason, principal.getName());
 		redirectAttributes.addFlashAttribute("message", "Đã hủy mẫu " + sample.getCode());
+		redirectAttributes.addAttribute("id", id);
+		return "redirect:/samples/{id}";
+	}
+
+	/** Kết luận mẫu (BR-11). Lỗi nghiệp vụ do {@link GlobalControllerAdvice} xử lý. */
+	@PostMapping("/{id}/conclude")
+	String conclude(@PathVariable long id, Principal principal, RedirectAttributes redirectAttributes) {
+		LabSample sample = sampleService.conclude(id, principal.getName());
+		redirectAttributes.addFlashAttribute("message", "Đã kết luận mẫu: " + sample.getConclusion().getLabel());
 		redirectAttributes.addAttribute("id", id);
 		return "redirect:/samples/{id}";
 	}

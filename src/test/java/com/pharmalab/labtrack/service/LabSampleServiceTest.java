@@ -210,7 +210,11 @@ class LabSampleServiceTest {
 		givenLockedSampleIn(SampleStatus.IN_TESTING);
 		givenResults(Collections.nCopies(rejectedCount, result(ResultStatus.REJECTED, Verdict.PASS)));
 
+<<<<<<< HEAD
 		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
+=======
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
 				assertThat(ex.getCode()).isEqualTo("NO_RESULTS");
 				assertThat(ex.getField()).isNull();
@@ -226,7 +230,11 @@ class LabSampleServiceTest {
 		givenLockedSampleIn(SampleStatus.IN_TESTING);
 		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.PENDING, Verdict.PASS)));
 
+<<<<<<< HEAD
 		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
+=======
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
 				assertThat(ex.getCode()).isEqualTo("RESULTS_PENDING");
 				assertThat(ex).hasMessage("Còn kết quả chưa được duyệt nên chưa thể kết luận");
@@ -243,7 +251,11 @@ class LabSampleServiceTest {
 				result(ResultStatus.APPROVED, Verdict.PASS)));
 		when(sampleMapper.conclude(any(), any())).thenReturn(1);
 
+<<<<<<< HEAD
 		LabSample concluded = service.conclude(SAMPLE_ID, Verdict.PASS, "duyet");
+=======
+		LabSample concluded = service.conclude(SAMPLE_ID, "duyet");
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 
 		StatusChange change = conclusionChange("Kết luận: Đạt");
 		verify(sampleMapper).conclude(change, Verdict.PASS);
@@ -262,7 +274,11 @@ class LabSampleServiceTest {
 		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.APPROVED, Verdict.FAIL)));
 		when(sampleMapper.conclude(any(), any())).thenReturn(1);
 
+<<<<<<< HEAD
 		LabSample concluded = service.conclude(SAMPLE_ID, Verdict.FAIL, "duyet");
+=======
+		LabSample concluded = service.conclude(SAMPLE_ID, "duyet");
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 
 		StatusChange change = conclusionChange("Kết luận: Không đạt");
 		verify(sampleMapper).conclude(change, Verdict.FAIL);
@@ -275,7 +291,11 @@ class LabSampleServiceTest {
 	void concludeRejectsSampleNotInTesting() {
 		givenLockedSampleIn(SampleStatus.RECEIVED);
 
+<<<<<<< HEAD
 		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
+=======
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 			.isInstanceOf(InvalidStatusTransitionException.class)
 			.hasMessage("Không thể chuyển mẫu từ \"Đã tiếp nhận\" sang \"Hoàn thành\"");
 		verifyNoInteractions(resultMapper);
@@ -290,7 +310,11 @@ class LabSampleServiceTest {
 		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS)));
 		when(sampleMapper.conclude(any(), any())).thenReturn(0);
 
+<<<<<<< HEAD
 		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
+=======
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
 				assertThat(ex.getCode()).isEqualTo("CONCURRENT_UPDATE");
 				assertThat(ex).hasMessage("Mẫu vừa được người khác cập nhật, hãy tải lại trang");
@@ -298,6 +322,7 @@ class LabSampleServiceTest {
 		verifyNoInteractions(historyMapper);
 	}
 
+<<<<<<< HEAD
 	@Test
 	@DisplayName("TC-BR11-09 Người duyệt xác nhận Đạt nhưng sau khi khóa mẫu kết quả tính ra Không đạt: từ chối, không UPDATE, không ghi lịch sử")
 	void concludeRejectsVerdictThatChangedSinceDialogOpened() {
@@ -316,4 +341,6 @@ class LabSampleServiceTest {
 		verifyNoInteractions(historyMapper);
 	}
 
+=======
+>>>>>>> 944256a4a47413ddbb22dac0b1aa09b84e28ec6d
 }
