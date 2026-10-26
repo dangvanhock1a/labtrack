@@ -15,6 +15,7 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.StatusHistory;
+import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
 import com.pharmalab.labtrack.persistence.TestResultMapper;
@@ -137,11 +138,13 @@ public class LabSampleService {
 	 * kết quả (SPEC-004 D9, R14): nhập, duyệt, từ chối kết quả cũng khóa dòng này, nên không ai thêm hay đổi kết quả
 	 * được giữa lúc xét điều kiện và lúc ghi; không khóa thì mẫu có thể Hoàn thành khi vừa có một kết quả Chờ duyệt
 	 * mới. Điều kiện về kết quả và kết luận tính bằng {@link ConclusionReadiness}, cùng hàm trang chi tiết dùng để
-	 * bật nút. Câu UPDATE kèm trạng thái cũ chặn lần nữa, như {@link #changeStatus}; với khóa thì nó luôn khớp.
+	 * bật nút. {@code expectedVerdict} là kết luận hộp thoại đã hiện cho người duyệt: kết quả có thể đổi trong lúc
+	 * hộp thoại mở, nên tính lại ra khác thì từ chối, không lưu một kết luận người bấm chưa thấy, vì Hoàn thành không
+	 * sửa lại được. Câu UPDATE kèm trạng thái cũ chặn lần nữa, như {@link #changeStatus}; với khóa thì nó luôn khớp.
 	 * Kết luận, thời điểm hoàn thành và dòng lịch sử lấy từ cùng một {@link StatusChange} (BR-04).
 	 */
 	@Transactional
-	public LabSample conclude(long id, String actor) {
+	public LabSample conclude(long id, Verdict expectedVerdict, String actor) {
 		LabSample sample = sampleMapper.lockById(id)
 			.map(this::toClockZone)
 			.orElseThrow(() -> new BusinessException("SAMPLE_NOT_FOUND", null, "Không tìm thấy mẫu"));
@@ -152,6 +155,10 @@ public class LabSampleService {
 		ConclusionReadiness readiness = ConclusionReadiness.of(resultMapper.findBySample(id));
 		if (!readiness.ready()) {
 			throw readiness.toException();
+		}
+		if (readiness.verdict() != expectedVerdict) {
+			throw new BusinessException("CONCLUSION_CHANGED", null, "Kết quả của mẫu vừa thay đổi nên kết luận bây giờ là \""
+					+ readiness.verdict().getLabel() + "\"; hãy xem lại rồi kết luận lại");
 		}
 		StatusChange change = new StatusChange(id, fromStatus, SampleStatus.COMPLETED,
 				CONCLUSION_REASON_PREFIX + readiness.verdict().getLabel(), actor, OffsetDateTime.now(clock));

@@ -310,6 +310,9 @@
 		 class="modal fade" id="concludeModal" tabindex="-1" aria-labelledby="concludeModalTitle" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
 			<form class="modal-content" method="post" th:action="@{/samples/{id}/conclude(id=${sample.id})}">
+				<!-- Kết luận người duyệt đang xác nhận. Kết quả đổi trong lúc hộp thoại mở thì service tính lại ra khác
+					 và từ chối, thay vì lưu một kết luận người bấm chưa thấy (Hoàn thành không sửa lại được). -->
+				<input type="hidden" name="expectedVerdict" th:value="${conclusionReadiness.verdict().name()}">
 				<div class="modal-header">
 					<h2 class="modal-title h5" id="concludeModalTitle" th:text="|Kết luận mẫu ${sample.code}|"></h2>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>

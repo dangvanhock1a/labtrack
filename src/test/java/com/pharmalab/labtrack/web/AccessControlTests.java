@@ -292,9 +292,10 @@ class AccessControlTests {
 		LabSample concluded = receivedSample();
 		concluded.setStatus(SampleStatus.COMPLETED);
 		concluded.setConclusion(Verdict.PASS);
-		when(sampleService.conclude(SAMPLE_ID, "nguoidung")).thenReturn(concluded);
+		when(sampleService.conclude(SAMPLE_ID, Verdict.PASS, "nguoidung")).thenReturn(concluded);
 
 		mockMvc.perform(post("/samples/{id}/conclude", SAMPLE_ID)
+				.param("expectedVerdict", "PASS")
 				.with(user(principal("nguoidung", "Người dùng thử", role)))
 				.with(csrf()))
 			.andExpect(allowed ? redirectedUrl("/samples/42") : status().isForbidden());

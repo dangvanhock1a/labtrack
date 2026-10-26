@@ -1,6 +1,7 @@
 package com.pharmalab.labtrack.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
@@ -59,7 +60,7 @@ class SampleConclusionIntegrationTests {
 		resultService.approve(id, assay.getId(), "duyet");
 		resultService.approve(id, ph.getId(), "duyet");
 
-		LabSample concluded = sampleService.conclude(id, "duyet");
+		LabSample concluded = sampleService.conclude(id, Verdict.FAIL, "duyet");
 
 		assertThat(concluded.getStatus()).isEqualTo(SampleStatus.COMPLETED);
 		assertThat(concluded.getConclusion()).isEqualTo(Verdict.FAIL);
@@ -78,6 +79,32 @@ class SampleConclusionIntegrationTests {
 					tuple(SampleStatus.RECEIVED, SampleStatus.IN_TESTING, null, "kiemnghiem1"),
 					tuple(SampleStatus.IN_TESTING, SampleStatus.COMPLETED, "Kết luận: Không đạt", "duyet"));
 		assertThat(history.get(2).getChangedAt()).isEqualTo(stored.getCompletedAt());
+	}
+
+	@Test
+	@DisplayName("TC-BR11-10 Hộp thoại hiện Đạt; trong lúc nó mở, pH Không đạt được nhập và được duyet2 duyệt: kết luận Đạt bị từ chối, mẫu vẫn Đang kiểm nghiệm, không thêm dòng lịch sử")
+	void concludeRejectsVerdictThatChangedWhileDialogWasOpen() {
+		long id = sampleService.register(
+				new NewSample("Paracetamol 500 mg", "PA-2601", SampleType.FINISHED_PRODUCT, null, null), "tiepnhan")
+			.getId();
+		sampleService.startTesting(id, "kiemnghiem1");
+		TestResult assay = enter(id, "ASSAY", "98.5");
+		resultService.approve(id, assay.getId(), "duyet");
+		// Kết luận trang chi tiết tính sẵn cho hộp thoại, đúng như SampleController.detail.
+		Verdict shown = ConclusionReadiness.ofSheet(resultService.findSheet(id)).verdict();
+		assertThat(shown).isEqualTo(Verdict.PASS);
+
+		TestResult ph = enter(id, "PH", "7.5");
+		resultService.approve(id, ph.getId(), "duyet2");
+
+		assertThatThrownBy(() -> sampleService.conclude(id, shown, "duyet"))
+			.isInstanceOfSatisfying(BusinessException.class,
+					ex -> assertThat(ex.getCode()).isEqualTo("CONCLUSION_CHANGED"));
+		LabSample stored = sampleService.findById(id).orElseThrow();
+		assertThat(stored.getStatus()).isEqualTo(SampleStatus.IN_TESTING);
+		assertThat(stored.getConclusion()).isNull();
+		assertThat(stored.getCompletedAt()).isNull();
+		assertThat(sampleService.findStatusHistory(id)).hasSize(2);
 	}
 
 }

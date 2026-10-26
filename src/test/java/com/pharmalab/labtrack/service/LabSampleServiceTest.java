@@ -210,7 +210,7 @@ class LabSampleServiceTest {
 		givenLockedSampleIn(SampleStatus.IN_TESTING);
 		givenResults(Collections.nCopies(rejectedCount, result(ResultStatus.REJECTED, Verdict.PASS)));
 
-		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
 				assertThat(ex.getCode()).isEqualTo("NO_RESULTS");
 				assertThat(ex.getField()).isNull();
@@ -226,7 +226,7 @@ class LabSampleServiceTest {
 		givenLockedSampleIn(SampleStatus.IN_TESTING);
 		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.PENDING, Verdict.PASS)));
 
-		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
 				assertThat(ex.getCode()).isEqualTo("RESULTS_PENDING");
 				assertThat(ex).hasMessage("Còn kết quả chưa được duyệt nên chưa thể kết luận");
@@ -243,7 +243,7 @@ class LabSampleServiceTest {
 				result(ResultStatus.APPROVED, Verdict.PASS)));
 		when(sampleMapper.conclude(any(), any())).thenReturn(1);
 
-		LabSample concluded = service.conclude(SAMPLE_ID, "duyet");
+		LabSample concluded = service.conclude(SAMPLE_ID, Verdict.PASS, "duyet");
 
 		StatusChange change = conclusionChange("Kết luận: Đạt");
 		verify(sampleMapper).conclude(change, Verdict.PASS);
@@ -262,7 +262,7 @@ class LabSampleServiceTest {
 		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.APPROVED, Verdict.FAIL)));
 		when(sampleMapper.conclude(any(), any())).thenReturn(1);
 
-		LabSample concluded = service.conclude(SAMPLE_ID, "duyet");
+		LabSample concluded = service.conclude(SAMPLE_ID, Verdict.FAIL, "duyet");
 
 		StatusChange change = conclusionChange("Kết luận: Không đạt");
 		verify(sampleMapper).conclude(change, Verdict.FAIL);
@@ -275,7 +275,7 @@ class LabSampleServiceTest {
 	void concludeRejectsSampleNotInTesting() {
 		givenLockedSampleIn(SampleStatus.RECEIVED);
 
-		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
 			.isInstanceOf(InvalidStatusTransitionException.class)
 			.hasMessage("Không thể chuyển mẫu từ \"Đã tiếp nhận\" sang \"Hoàn thành\"");
 		verifyNoInteractions(resultMapper);
@@ -290,11 +290,29 @@ class LabSampleServiceTest {
 		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS)));
 		when(sampleMapper.conclude(any(), any())).thenReturn(0);
 
-		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, "duyet"))
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
 				assertThat(ex.getCode()).isEqualTo("CONCURRENT_UPDATE");
 				assertThat(ex).hasMessage("Mẫu vừa được người khác cập nhật, hãy tải lại trang");
 			});
+		verifyNoInteractions(historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR11-09 Người duyệt xác nhận Đạt nhưng sau khi khóa mẫu kết quả tính ra Không đạt: từ chối, không UPDATE, không ghi lịch sử")
+	void concludeRejectsVerdictThatChangedSinceDialogOpened() {
+		givenLockedSampleIn(SampleStatus.IN_TESTING);
+		// Hộp thoại hiện Đạt; trong lúc nó mở, một kết quả Không đạt được nhập và được người khác duyệt.
+		givenResults(List.of(result(ResultStatus.APPROVED, Verdict.PASS), result(ResultStatus.APPROVED, Verdict.FAIL)));
+
+		assertThatThrownBy(() -> service.conclude(SAMPLE_ID, Verdict.PASS, "duyet"))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getCode()).isEqualTo("CONCLUSION_CHANGED");
+				assertThat(ex.getField()).isNull();
+				assertThat(ex).hasMessage(
+						"Kết quả của mẫu vừa thay đổi nên kết luận bây giờ là \"Không đạt\"; hãy xem lại rồi kết luận lại");
+			});
+		verify(sampleMapper, never()).conclude(any(), any());
 		verifyNoInteractions(historyMapper);
 	}
 
