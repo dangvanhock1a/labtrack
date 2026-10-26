@@ -22,7 +22,7 @@ import com.pharmalab.labtrack.persistence.TestParameterMapper;
 import com.pharmalab.labtrack.service.NewResult;
 import com.pharmalab.labtrack.service.TestResultService;
 
-/** Vòng đời mẫu và kết quả qua giao diện, UC-02..UC-06. Kịch bản ở {@code docs/kich-ban-e2e.md}. */
+/** Vòng đời mẫu và kết quả qua giao diện, UC-02..UC-07. Kịch bản ở {@code docs/kich-ban-e2e.md}. */
 class SampleLifecycleIT extends E2ETestBase {
 
 	@Autowired
@@ -35,7 +35,7 @@ class SampleLifecycleIT extends E2ETestBase {
 	private TestParameterMapper parameterMapper;
 
 	@Test
-	@DisplayName("TC-E2E-03 Đăng ký (thử bỏ trống trước), nhận kiểm nghiệm, nhập 2 kết quả, người duyệt duyệt cả 2 (BR-01..BR-08, BR-10)")
+	@DisplayName("TC-E2E-03 Đăng ký (thử bỏ trống trước), nhận kiểm nghiệm, nhập 2 kết quả, người duyệt duyệt cả 2 rồi kết luận Không đạt (BR-01..BR-08, BR-10, BR-11)")
 	void fullLifecycle() {
 		// DbCleaner đặt lại bộ đếm, nên mẫu đầu tiên trong năm theo giờ VN (BR-01) là số 00001.
 		String code = "LS-" + Year.now(clock) + "-00001";
@@ -114,6 +114,17 @@ class SampleLifecycleIT extends E2ETestBase {
 		logout();
 		login("duyet");
 		openSample(code);
+		// BR-11: còn 2 kết quả Chờ duyệt nên nút bị vô hiệu kèm lý do. Như TC-E2E-04, nút disabled không nhận sự kiện
+		// chuột; tooltip gắn ở thẻ bọc, force đưa con trỏ tới nút như người dùng.
+		String notReady = "Còn kết quả chưa được duyệt nên chưa thể kết luận";
+		Locator conclude = page.getByRole(AriaRole.BUTTON,
+				new Page.GetByRoleOptions().setName("Kết luận mẫu").setExact(true));
+		assertThat(conclude).isDisabled();
+		assertThat(conclude).hasAccessibleDescription(notReady);
+		conclude.hover(new Locator.HoverOptions().setForce(true));
+		assertThat(page.getByRole(AriaRole.TOOLTIP)).hasText(notReady);
+		screenshot("05-nut-ket-luan-bi-vo-hieu");
+
 		approve("Định lượng hoạt chất");
 		assertThat(flash).hasText("Đã duyệt kết quả Định lượng hoạt chất");
 		approve("pH");
@@ -127,9 +138,36 @@ class SampleLifecycleIT extends E2ETestBase {
 		}
 		assertThat(audit).hasCount(4);
 		assertThat(audit.filter(new Locator.FilterOptions().setHasText("Duyệt"))).hasCount(2);
-		// Chưa có chức năng kết luận mẫu (BR-11, I-8), nên duyệt hết kết quả không đổi trạng thái mẫu.
+		// Duyệt hết kết quả không tự đổi trạng thái mẫu: người duyệt phải bấm Kết luận mẫu (BR-11).
 		assertThat(page.getByTestId("status-badge")).hasText("Đang kiểm nghiệm");
-		screenshot("05-da-duyet-2-ket-qua");
+		assertThat(conclude).isEnabled();
+		screenshot("06-da-duyet-2-ket-qua");
+
+		conclude.click();
+		Locator dialog = page.getByRole(AriaRole.DIALOG, new Page.GetByRoleOptions().setName("Kết luận mẫu " + code));
+		// pH 7.5 Không đạt nên mẫu kết luận Không đạt, dù ASSAY Đạt.
+		assertThat(dialog).containsText("Không đạt");
+		screenshot("07-hop-thoai-ket-luan");
+		dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Kết luận").setExact(true)).click();
+
+		assertThat(flash).hasText("Đã kết luận mẫu: Không đạt");
+		assertThat(page.getByTestId("status-badge")).hasText("Hoàn thành");
+		assertThat(page.getByTestId("conclusion")).hasText("Không đạt");
+		assertThat(history).hasCount(3);
+		Locator concludedRow = history.filter(new Locator.FilterOptions().setHasText("Đang kiểm nghiệm → Hoàn thành"));
+		assertThat(concludedRow).containsText("Kết luận: Không đạt");
+		assertThat(concludedRow).containsText("duyet");
+		// Hoàn thành là trạng thái kết thúc (BR-03): không còn nút kết luận hay hủy.
+		assertThat(conclude).hasCount(0);
+		assertThat(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hủy mẫu"))).hasCount(0);
+		screenshot("08-da-ket-luan");
+
+		page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Quay lại danh sách")).click();
+
+		Locator listRow = page.getByRole(AriaRole.ROW).filter(new Locator.FilterOptions().setHasText(code));
+		assertThat(listRow).containsText("Hoàn thành");
+		assertThat(listRow).containsText("Không đạt");
+		screenshot("09-danh-sach-da-ket-luan");
 	}
 
 	@Test

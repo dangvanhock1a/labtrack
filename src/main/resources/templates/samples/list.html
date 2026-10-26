@@ -23,6 +23,7 @@
 				<th scope="col">Số lô</th>
 				<th scope="col">Loại mẫu</th>
 				<th scope="col" class="text-center">Trạng thái</th>
+				<th scope="col">Kết luận</th>
 				<th scope="col">Thời điểm nhận</th>
 				<th scope="col">Hạn trả</th>
 			</tr>
@@ -33,7 +34,15 @@
 				<td th:text="${s.productName}"></td>
 				<td th:text="${s.batchNo}"></td>
 				<td th:text="${s.sampleType.label}"></td>
-				<td class="text-center" th:text="${s.status.label}"></td>
+				<td class="text-center">
+					<span th:replace="~{fragments/layout :: statusBadge(${s.status})}"></span>
+				</td>
+				<!-- BR-11: chỉ mẫu Hoàn thành có kết luận. th:if nằm ở th:block vì thẻ bên trong dùng th:replace. -->
+				<td>
+					<th:block th:if="${s.conclusion != null}">
+						<span th:replace="~{fragments/layout :: verdictBadge(${s.conclusion})}"></span>
+					</th:block>
+				</td>
 				<td th:text="${@fmt.dateTime(s.receivedAt)}"></td>
 				<td th:text="${@fmt.date(s.dueDate)}"></td>
 			</tr>

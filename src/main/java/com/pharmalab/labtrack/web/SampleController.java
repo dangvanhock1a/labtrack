@@ -28,7 +28,9 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.service.BusinessException;
+import com.pharmalab.labtrack.service.ConclusionReadiness;
 import com.pharmalab.labtrack.service.LabSampleService;
+import com.pharmalab.labtrack.service.ResultSheetRow;
 import com.pharmalab.labtrack.service.TestResultService;
 
 import jakarta.validation.Valid;
@@ -116,8 +118,11 @@ public class SampleController {
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu"));
 		model.addAttribute("sample", sample);
 		model.addAttribute("history", sampleService.findStatusHistory(id));
-		model.addAttribute("resultSheet", resultService.findSheet(id));
+		List<ResultSheetRow> resultSheet = resultService.findSheet(id);
+		model.addAttribute("resultSheet", resultSheet);
 		model.addAttribute("resultAudit", resultService.findAudit(id));
+		// BR-11: nút Kết luận mẫu chỉ đọc kết quả này, cùng hàm mà LabSampleService.conclude dùng để chặn.
+		model.addAttribute("conclusion", ConclusionReadiness.ofSheet(resultSheet));
 		return "samples/detail";
 	}
 
@@ -140,6 +145,15 @@ public class SampleController {
 			RedirectAttributes redirectAttributes) {
 		LabSample sample = sampleService.cancel(id, reason, principal.getName());
 		redirectAttributes.addFlashAttribute("message", "Đã hủy mẫu " + sample.getCode());
+		redirectAttributes.addAttribute("id", id);
+		return "redirect:/samples/{id}";
+	}
+
+	/** Kết luận mẫu (BR-11). Lỗi nghiệp vụ do {@link GlobalControllerAdvice} xử lý. */
+	@PostMapping("/{id}/conclude")
+	String conclude(@PathVariable long id, Principal principal, RedirectAttributes redirectAttributes) {
+		LabSample sample = sampleService.conclude(id, principal.getName());
+		redirectAttributes.addFlashAttribute("message", "Đã kết luận mẫu: " + sample.getConclusion().getLabel());
 		redirectAttributes.addAttribute("id", id);
 		return "redirect:/samples/{id}";
 	}

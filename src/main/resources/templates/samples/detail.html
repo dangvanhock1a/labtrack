@@ -5,239 +5,327 @@
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 
 <main class="container">
+	<nav aria-label="Đường dẫn">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a th:href="@{/samples}">Danh sách mẫu</a></li>
+			<li class="breadcrumb-item active" aria-current="page" th:text="${sample.code}">LS-2026-00001</li>
+		</ol>
+	</nav>
+
 	<div th:replace="~{fragments/layout :: flash}"></div>
 
-	<h1 class="h3 mb-3" th:text="|Mẫu ${sample.code}|"></h1>
+	<div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+		<div class="d-flex flex-wrap align-items-center gap-2">
+			<!-- Chữ "Mẫu " ẩn giữ tên tiêu đề "Mẫu LS-…" cho trình đọc màn hình; E2E tìm trang theo tên đó. -->
+			<h1 class="h3 mb-0"><span class="visually-hidden">Mẫu </span><span th:text="${sample.code}">LS-2026-00001</span></h1>
+			<span data-testid="status-badge"><span th:replace="~{fragments/layout :: statusBadge(${sample.status})}"></span></span>
+			<!-- BR-11: chỉ mẫu Hoàn thành có kết luận (ck_lab_sample_completed, V5). th:if nằm ở th:block vì thẻ bên
+				 trong dùng th:replace. -->
+			<th:block th:if="${sample.conclusion != null}">
+				<span class="ms-2">Kết luận:
+					<span data-testid="conclusion"><span th:replace="~{fragments/layout :: verdictBadge(${sample.conclusion})}"></span></span>
+				</span>
+			</th:block>
+		</div>
 
-	<dl class="row">
-		<dt class="col-sm-3">Mã mẫu</dt>
-		<dd class="col-sm-9" th:text="${sample.code}"></dd>
+		<div>
+			<!-- BR-12: nút hiện khi vừa đúng trạng thái vừa đúng vai trò (ma trận trong SecurityConfig). Ẩn nút chỉ
+				 cho dễ dùng, gửi thẳng POST vẫn bị SecurityConfig chặn. sec:authorize và th:if đều chỉ bỏ thẻ khi
+				 điều kiện sai, nên đặt chung một thẻ được, thứ tự xử lý không đổi kết quả. -->
+			<div class="d-flex flex-wrap justify-content-lg-end gap-2">
+				<!-- BR-03: chỉ mẫu Đã tiếp nhận mới nhận vào kiểm nghiệm được. -->
+				<form th:if="${sample.status.name() == 'RECEIVED'}" sec:authorize="hasAnyRole('ANALYST', 'REVIEWER')"
+					  method="post" th:action="@{/samples/{id}/start(id=${sample.id})}">
+					<button type="submit" class="btn btn-primary">Nhận kiểm nghiệm</button>
+				</form>
 
-		<dt class="col-sm-3">Sản phẩm</dt>
-		<dd class="col-sm-9" th:text="${sample.productName}"></dd>
-
-		<dt class="col-sm-3">Số lô</dt>
-		<dd class="col-sm-9" th:text="${sample.batchNo}"></dd>
-
-		<dt class="col-sm-3">Loại mẫu</dt>
-		<dd class="col-sm-9" th:text="${sample.sampleType.label}"></dd>
-
-		<dt class="col-sm-3">Trạng thái</dt>
-		<dd class="col-sm-9" data-testid="status-badge">
-			<span th:replace="~{fragments/layout :: statusBadge(${sample.status})}"></span>
-		</dd>
-
-		<dt class="col-sm-3">Thời điểm nhận</dt>
-		<dd class="col-sm-9" th:text="${@fmt.dateTime(sample.receivedAt)}"></dd>
-
-		<dt class="col-sm-3">Hạn trả kết quả</dt>
-		<dd class="col-sm-9" th:text="${@fmt.date(sample.dueDate)}"></dd>
-
-		<dt class="col-sm-3">Người đăng ký</dt>
-		<dd class="col-sm-9" th:text="${sample.createdBy}"></dd>
-	</dl>
-
-	<!-- BR-06..BR-09 (SPEC-004 mục 4.2). Ẩn ô nhập và nút chỉ cho dễ dùng: quyền do SecurityConfig chặn, còn
-		 trạng thái mẫu, nguyên tắc 4 mắt và trùng kết quả do TestResultService chặn. #authorization.expression
-		 dùng cùng luật với sec:authorize; đặt trong th:with để mọi dòng dùng chung. -->
-	<section class="mb-4" aria-labelledby="resultsTitle"
-			 th:with="inTesting=${sample.status.name() == 'IN_TESTING'},
-					  canEnter=${inTesting and #authorization.expression('hasAnyRole(''ANALYST'', ''REVIEWER'')')},
-					  canReview=${inTesting and #authorization.expression('hasRole(''REVIEWER'')')}">
-		<h2 class="h5" id="resultsTitle">Kết quả kiểm nghiệm</h2>
-		<!-- R15: kết quả chờ duyệt của mẫu đã hủy giữ nguyên, nhưng không ai xử lý được nữa. -->
-		<p th:if="${sample.status.name() == 'CANCELLED' and !#lists.isEmpty(resultSheet.?[pending()])}"
-		   class="alert alert-warning py-2">Mẫu đã hủy, kết quả chờ duyệt không còn được xử lý</p>
-		<div class="table-responsive">
-			<table class="table table-sm align-middle">
-				<thead>
-				<tr>
-					<th scope="col">Chỉ tiêu</th>
-					<th scope="col">Tiêu chuẩn</th>
-					<th scope="col">Kết quả</th>
-					<th scope="col">Đánh giá</th>
-					<th scope="col">Trạng thái</th>
-					<th scope="col">Người nhập · lúc</th>
-					<th scope="col">Thao tác</th>
-				</tr>
-				</thead>
-				<tbody data-testid="result-table">
-				<th:block th:each="row : ${resultSheet}" th:with="p=${row.parameter()}, r=${row.effective()}">
-					<tr>
-						<th scope="row" class="fw-normal">
-							<span th:text="${p.name}">pH</span>
-							<span th:unless="${p.active}" class="badge text-bg-light">Ngừng sử dụng</span>
-						</th>
-						<td class="text-nowrap" th:text="${row.specLabel()}">4.5 – 7</td>
-						<td data-testid="result-value">
-							<th:block th:if="${r != null}">
-								<span class="text-nowrap" th:text="|${r.value.toPlainString()} ${r.unit}|">6.2 pH</span>
-								<span th:if="${r.attemptNo != null and r.attemptNo > 1}"
-									  class="text-body-secondary text-nowrap" th:text="|(Lần ${r.attemptNo})|">(Lần 2)</span>
-							</th:block>
-							<!-- Không có trường đánh giá: hệ thống tự tính (BR-07). -->
-							<form th:if="${canEnter and row.awaitingEntry()}" method="post"
-								  th:action="@{/samples/{id}/results(id=${sample.id})}">
-								<input type="hidden" name="parameterId" th:value="${p.id}">
-								<label class="visually-hidden" th:for="|value-${p.id}|"
-									   th:text="|Giá trị ${p.name} (${p.unit})|">Giá trị pH (pH)</label>
-								<div class="input-group input-group-sm flex-nowrap">
-									<input type="number" class="form-control" th:id="|value-${p.id}|" name="value"
-										   min="0" step="0.0001" inputmode="decimal" required style="min-width: 7rem"
-										   th:classappend="${errorParameterId == p.id} ? 'is-invalid'">
-									<span class="input-group-text" th:text="${p.unit}">pH</span>
-									<button type="submit" class="btn btn-primary">Lưu</button>
-								</div>
-							</form>
-							<span th:if="${r == null and !(canEnter and row.awaitingEntry())}"
-								  class="text-body-secondary">Chưa có kết quả</span>
-						</td>
-						<td data-testid="result-verdict">
-							<th:block th:if="${r != null}">
-								<span th:replace="~{fragments/layout :: verdictBadge(${r.verdict})}"></span>
-							</th:block>
-						</td>
-						<td data-testid="result-status">
-							<th:block th:if="${r != null}">
-								<span th:replace="~{fragments/layout :: resultStatusBadge(${r.status})}"></span>
-								<small th:if="${r.reviewedBy != null}" class="d-block text-body-secondary text-nowrap"
-									   th:text="|${r.reviewedBy} · ${@fmt.dateTime(r.reviewedAt)}|"></small>
-							</th:block>
-						</td>
-						<td class="text-nowrap" data-testid="result-entered" th:text="${r != null} ? |${r.enteredBy} · ${@fmt.dateTime(r.enteredAt)}|"></td>
-						<td>
-							<!-- BR-08: kết quả do chính mình nhập thì nút bị vô hiệu kèm lời giải thích, thay vì ẩn
-								 đi khiến người duyệt không hiểu vì sao không duyệt được. Nút disabled của Bootstrap có
-								 pointer-events: none nên không nhận hover; tooltip gắn vào thẻ bọc, có tabindex để mở bằng
-								 bàn phím. Màn hình cảm ứng không có hover, nên câu giải thích vẫn hiện thành chữ nhỏ. -->
-							<th:block th:if="${row.pending() and canReview}"
-									  th:with="own=${r.enteredBy == #authentication.name},
-											   fourEyesNote='Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)'">
-								<div class="d-inline-flex flex-nowrap gap-1"
-									 th:attr="tabindex=${own} ? '0' : null, data-bs-toggle=${own} ? 'tooltip' : null,
-											  data-bs-title=${own} ? ${fourEyesNote} : null">
-									<form method="post"
-										  th:action="@{/samples/{id}/results/{resultId}/approve(id=${sample.id}, resultId=${r.id})}">
-										<button type="submit" class="btn btn-sm btn-success" th:disabled="${own}"
-												th:attr="aria-describedby=${own} ? |fourEyes-${r.id}| : null">Duyệt</button>
-									</form>
-									<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
-											th:attr="data-bs-target=|#rejectModal-${r.id}|, aria-describedby=${own} ? |fourEyes-${r.id}| : null"
-											th:disabled="${own}">Từ chối</button>
-								</div>
-								<small th:if="${own}" class="d-block text-body-secondary" th:id="|fourEyes-${r.id}|"
-									   th:text="${fourEyesNote}">Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)</small>
-							</th:block>
-						</td>
-					</tr>
-					<!-- BR-09: bản bị từ chối được giữ lại và hiện gạch ngang dưới chỉ tiêu, kèm người từ chối và lý do. -->
-					<tr th:each="old : ${row.rejected()}" class="small" data-testid="rejected-result">
-						<td colspan="7" class="ps-4 text-body-secondary">
-							<span aria-hidden="true">└</span>
-							<span class="text-decoration-line-through" data-testid="rejected-value"
-								  th:text="|${old.value.toPlainString()} ${old.unit}|">6.2 pH</span>
-							<span th:if="${old.attemptNo != null and old.attemptNo > 1}"
-								  th:text="|(Lần ${old.attemptNo})|">(Lần 2)</span>
-							<span th:replace="~{fragments/layout :: resultStatusBadge(${old.status})}"></span>
-							<span th:text="|${old.reviewedBy} · ${@fmt.dateTime(old.reviewedAt)}|">duyet</span>
-							· Lý do: <span th:text="${old.rejectReason}">Sai độ pha loãng</span>
-						</td>
-					</tr>
+				<!-- BR-11: bật hay tắt và câu lý do đều đọc từ ConclusionReadiness, hàm mà LabSampleService.conclude
+					 dùng để chặn. Như nút 4 mắt (BR-08): nút disabled không nhận hover nên tooltip gắn vào thẻ bọc có
+					 tabindex; câu lý do cũng hiện thành chữ nhỏ bên dưới cho màn hình cảm ứng. -->
+				<th:block th:if="${sample.status.name() == 'IN_TESTING'}" sec:authorize="hasRole('REVIEWER')"
+						  th:with="blocked=${!conclusion.ready()}">
+					<div class="d-inline-block"
+						 th:attr="tabindex=${blocked} ? '0' : null, data-bs-toggle=${blocked} ? 'tooltip' : null,
+								  data-bs-title=${blocked} ? ${conclusion.blockReason()} : null">
+						<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#concludeModal"
+								th:disabled="${blocked}"
+								th:attr="aria-describedby=${blocked} ? 'concludeBlocked' : null">Kết luận mẫu</button>
+					</div>
 				</th:block>
-				<tr th:if="${#lists.isEmpty(resultSheet)}">
-					<td colspan="7" class="text-body-secondary">Chưa có chỉ tiêu nào</td>
-				</tr>
-				</tbody>
-			</table>
-		</div>
-	</section>
 
-	<!-- BR-04: cũ trước mới sau; @fmt in giờ theo múi giờ ứng dụng (NFR-04). -->
-	<section class="mb-4" aria-labelledby="historyTitle">
-		<h2 class="h5" id="historyTitle">Lịch sử trạng thái</h2>
-		<div class="table-responsive">
-			<table class="table table-sm align-middle">
-				<thead>
-				<tr>
-					<th scope="col">Thời điểm</th>
-					<th scope="col">Người thực hiện</th>
-					<th scope="col">Từ → đến</th>
-					<th scope="col">Lý do</th>
-				</tr>
-				</thead>
-				<tbody data-testid="history">
-				<tr th:each="h : ${history}">
-					<td class="text-nowrap" th:text="${@fmt.dateTimeSeconds(h.changedAt)}"></td>
-					<td th:text="${h.changedBy}"></td>
-					<td class="text-nowrap">
-						<!-- th:replace chạy trước th:if nếu đặt cùng thẻ, nên điều kiện nằm ở th:block bọc ngoài. -->
-						<th:block th:if="${h.fromStatus == null}">Tạo mới</th:block>
-						<th:block th:unless="${h.fromStatus == null}">
-							<span th:replace="~{fragments/layout :: statusBadge(${h.fromStatus})}"></span>
+				<!-- BR-05: mẫu đã kết thúc (Hoàn thành, Đã hủy) thì không hủy được nữa. -->
+				<button type="button" class="btn btn-outline-danger" th:unless="${sample.status.terminal}"
+						sec:authorize="hasAnyRole('RECEPTIONIST', 'REVIEWER')"
+						data-bs-toggle="modal" data-bs-target="#cancelModal">Hủy mẫu</button>
+
+				<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại danh sách</a>
+			</div>
+			<small th:if="${sample.status.name() == 'IN_TESTING' and !conclusion.ready()}" sec:authorize="hasRole('REVIEWER')"
+				   id="concludeBlocked" class="d-block mt-2 text-lg-end text-body-secondary"
+				   th:text="${conclusion.blockReason()}">Còn kết quả chưa được duyệt nên chưa thể kết luận</small>
+		</div>
+	</div>
+
+	<div class="row g-4 mb-4">
+		<div class="col-lg-4">
+			<section class="card h-100" aria-labelledby="infoTitle">
+				<div class="card-header">
+					<h2 class="h6 mb-0" id="infoTitle">Thông tin mẫu</h2>
+				</div>
+				<div class="card-body">
+					<dl class="row mb-0">
+						<dt class="col-sm-5">Sản phẩm</dt>
+						<dd class="col-sm-7" th:text="${sample.productName}"></dd>
+
+						<dt class="col-sm-5">Số lô</dt>
+						<dd class="col-sm-7" th:text="${sample.batchNo}"></dd>
+
+						<dt class="col-sm-5">Loại mẫu</dt>
+						<dd class="col-sm-7" th:text="${sample.sampleType.label}"></dd>
+
+						<dt class="col-sm-5">Nhận lúc</dt>
+						<dd class="col-sm-7" th:text="${@fmt.dateTime(sample.receivedAt)}"></dd>
+
+						<dt class="col-sm-5">Hạn trả</dt>
+						<dd class="col-sm-7" th:text="${@fmt.date(sample.dueDate)}"></dd>
+
+						<th:block th:if="${sample.completedAt != null}">
+							<dt class="col-sm-5">Hoàn thành</dt>
+							<dd class="col-sm-7" th:text="${@fmt.dateTime(sample.completedAt)}"></dd>
 						</th:block>
-						→
-						<span th:replace="~{fragments/layout :: statusBadge(${h.toStatus})}"></span>
-					</td>
-					<td th:text="${h.reason}"></td>
-				</tr>
-				<tr th:if="${#lists.isEmpty(history)}">
-					<td colspan="4" class="text-body-secondary">Chưa có lịch sử</td>
-				</tr>
-				</tbody>
-			</table>
+
+						<dt class="col-sm-5">Người đăng ký</dt>
+						<dd class="col-sm-7 mb-0" th:text="${sample.createdBy}"></dd>
+					</dl>
+				</div>
+			</section>
 		</div>
-	</section>
 
-	<!-- BR-10: audit trail của kết quả, cũ trước mới sau, mọi vai trò xem được; @fmt in giờ theo múi giờ ứng dụng. -->
-	<section class="mb-4" aria-labelledby="resultAuditTitle">
-		<h2 class="h5" id="resultAuditTitle">Nhật ký kết quả</h2>
-		<div class="table-responsive">
-			<table class="table table-sm align-middle">
-				<thead>
-				<tr>
-					<th scope="col">Thời điểm</th>
-					<th scope="col">Người thực hiện</th>
-					<th scope="col">Thao tác</th>
-					<th scope="col">Chỉ tiêu</th>
-					<th scope="col">Chi tiết</th>
-				</tr>
-				</thead>
-				<tbody data-testid="audit">
-				<tr th:each="a : ${resultAudit}">
-					<td class="text-nowrap" th:text="${@fmt.dateTimeSeconds(a.actedAt)}"></td>
-					<td th:text="${a.actor}"></td>
-					<td th:text="${a.action.label}"></td>
-					<td th:text="${a.parameterName}"></td>
-					<td th:switch="${a.action.name()}">
-						<th:block th:case="'ENTER'" th:text="|${a.value} ${a.unit} – ${a.verdict.label}|"></th:block>
-						<th:block th:case="'APPROVE'">Đã duyệt</th:block>
-						<th:block th:case="'REJECT'" th:text="|Lý do: ${a.rejectReason}|"></th:block>
-					</td>
-				</tr>
-				<tr th:if="${#lists.isEmpty(resultAudit)}">
-					<td colspan="5" class="text-body-secondary">Chưa có thao tác nào trên kết quả</td>
-				</tr>
-				</tbody>
-			</table>
+		<div class="col-lg-8">
+			<!-- BR-06..BR-09 (SPEC-004 mục 4.2). Ẩn ô nhập và nút chỉ cho dễ dùng: quyền do SecurityConfig chặn, còn
+				 trạng thái mẫu, nguyên tắc 4 mắt và trùng kết quả do TestResultService chặn. #authorization.expression
+				 dùng cùng luật với sec:authorize; đặt trong th:with để mọi dòng dùng chung. Card chỉ rộng 8/12 nên
+				 không có cột Thao tác: nút Duyệt/Từ chối nằm dưới nhãn trạng thái, và ô người nhập được xuống dòng,
+				 để bảng có ô nhập không tràn ngang. -->
+			<section class="card h-100" aria-labelledby="resultsTitle"
+					 th:with="inTesting=${sample.status.name() == 'IN_TESTING'},
+							  canEnter=${inTesting and #authorization.expression('hasAnyRole(''ANALYST'', ''REVIEWER'')')},
+							  canReview=${inTesting and #authorization.expression('hasRole(''REVIEWER'')')}">
+				<div class="card-header">
+					<h2 class="h6 mb-0" id="resultsTitle">Kết quả kiểm nghiệm</h2>
+				</div>
+				<div class="card-body">
+					<!-- R15: kết quả chờ duyệt của mẫu đã hủy giữ nguyên, nhưng không ai xử lý được nữa. -->
+					<p th:if="${sample.status.name() == 'CANCELLED' and !#lists.isEmpty(resultSheet.?[pending()])}"
+					   class="alert alert-warning py-2">Mẫu đã hủy, kết quả chờ duyệt không còn được xử lý</p>
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0">
+							<thead>
+							<tr>
+								<th scope="col">Chỉ tiêu</th>
+								<th scope="col">Tiêu chuẩn</th>
+								<th scope="col">Giá trị</th>
+								<th scope="col">Đánh giá</th>
+								<th scope="col">Trạng thái</th>
+								<th scope="col">Người nhập · lúc</th>
+							</tr>
+							</thead>
+							<tbody data-testid="result-table">
+							<th:block th:each="row : ${resultSheet}" th:with="p=${row.parameter()}, r=${row.effective()}">
+								<tr>
+									<th scope="row" class="fw-normal" style="min-width: 9rem">
+										<span th:text="${p.name}">pH</span>
+										<span th:unless="${p.active}" class="badge text-bg-light">Ngừng sử dụng</span>
+									</th>
+									<td class="text-nowrap" th:text="${row.specLabel()}">4.5 – 7</td>
+									<td data-testid="result-value">
+										<th:block th:if="${r != null}">
+											<span class="text-nowrap" th:text="|${r.value.toPlainString()} ${r.unit}|">6.2 pH</span>
+											<span th:if="${r.attemptNo != null and r.attemptNo > 1}"
+												  class="text-body-secondary text-nowrap" th:text="|(Lần ${r.attemptNo})|">(Lần 2)</span>
+										</th:block>
+										<!-- Không có trường đánh giá: hệ thống tự tính (BR-07). -->
+										<form th:if="${canEnter and row.awaitingEntry()}" method="post"
+											  th:action="@{/samples/{id}/results(id=${sample.id})}">
+											<input type="hidden" name="parameterId" th:value="${p.id}">
+											<label class="visually-hidden" th:for="|value-${p.id}|"
+												   th:text="|Giá trị ${p.name} (${p.unit})|">Giá trị pH (pH)</label>
+											<div class="input-group input-group-sm flex-nowrap">
+												<input type="number" class="form-control" th:id="|value-${p.id}|" name="value"
+													   min="0" step="0.0001" inputmode="decimal" required style="min-width: 7rem"
+													   th:classappend="${errorParameterId == p.id} ? 'is-invalid'">
+												<span class="input-group-text" th:text="${p.unit}">pH</span>
+												<button type="submit" class="btn btn-primary">Lưu</button>
+											</div>
+										</form>
+										<span th:if="${r == null and !(canEnter and row.awaitingEntry())}"
+											  class="text-body-secondary text-nowrap">Chưa có kết quả</span>
+									</td>
+									<td data-testid="result-verdict">
+										<th:block th:if="${r != null}">
+											<span th:replace="~{fragments/layout :: verdictBadge(${r.verdict})}"></span>
+										</th:block>
+									</td>
+									<td>
+										<!-- data-testid nằm ở thẻ bọc nhãn, không ở ô: chữ của nó chỉ gồm trạng thái và người
+											 duyệt, không lẫn chữ trên nút. -->
+										<div data-testid="result-status">
+											<th:block th:if="${r != null}">
+												<span th:replace="~{fragments/layout :: resultStatusBadge(${r.status})}"></span>
+												<small th:if="${r.reviewedBy != null}" class="d-block text-body-secondary text-nowrap"
+													   th:text="|${r.reviewedBy} · ${@fmt.dateTime(r.reviewedAt)}|"></small>
+											</th:block>
+										</div>
+										<!-- BR-08: kết quả do chính mình nhập thì nút bị vô hiệu kèm lời giải thích, thay vì ẩn
+											 đi khiến người duyệt không hiểu vì sao không duyệt được. Nút disabled của Bootstrap
+											 có pointer-events: none nên không nhận hover; tooltip gắn vào thẻ bọc, có tabindex
+											 để mở bằng bàn phím. Màn hình cảm ứng không có hover, nên câu giải thích vẫn hiện
+											 thành chữ nhỏ. -->
+										<th:block th:if="${row.pending() and canReview}"
+												  th:with="own=${r.enteredBy == #authentication.name},
+														   fourEyesNote='Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)'">
+											<div class="d-inline-flex flex-nowrap text-nowrap gap-1 mt-1"
+												 th:attr="tabindex=${own} ? '0' : null, data-bs-toggle=${own} ? 'tooltip' : null,
+														  data-bs-title=${own} ? ${fourEyesNote} : null">
+												<form method="post"
+													  th:action="@{/samples/{id}/results/{resultId}/approve(id=${sample.id}, resultId=${r.id})}">
+													<button type="submit" class="btn btn-sm btn-success" th:disabled="${own}"
+															th:attr="aria-describedby=${own} ? |fourEyes-${r.id}| : null">Duyệt</button>
+												</form>
+												<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+														th:attr="data-bs-target=|#rejectModal-${r.id}|, aria-describedby=${own} ? |fourEyes-${r.id}| : null"
+														th:disabled="${own}">Từ chối</button>
+											</div>
+											<small th:if="${own}" class="d-block text-body-secondary" th:id="|fourEyes-${r.id}|"
+												   th:text="${fourEyesNote}">Bạn đã nhập kết quả này; cần người duyệt khác (nguyên tắc 4 mắt)</small>
+										</th:block>
+									</td>
+									<td data-testid="result-entered" style="min-width: 8.5rem" th:text="${r != null} ? |${r.enteredBy} · ${@fmt.dateTime(r.enteredAt)}|"></td>
+								</tr>
+								<!-- BR-09: bản bị từ chối được giữ lại và hiện gạch ngang dưới chỉ tiêu, kèm người từ chối và lý do. -->
+								<tr th:each="old : ${row.rejected()}" class="small" data-testid="rejected-result">
+									<td colspan="6" class="ps-4 text-body-secondary">
+										<span aria-hidden="true">└</span>
+										<span class="text-decoration-line-through" data-testid="rejected-value"
+											  th:text="|${old.value.toPlainString()} ${old.unit}|">6.2 pH</span>
+										<span th:if="${old.attemptNo != null and old.attemptNo > 1}"
+											  th:text="|(Lần ${old.attemptNo})|">(Lần 2)</span>
+										<span th:replace="~{fragments/layout :: resultStatusBadge(${old.status})}"></span>
+										<span th:text="|${old.reviewedBy} · ${@fmt.dateTime(old.reviewedAt)}|">duyet</span>
+										· Lý do: <span th:text="${old.rejectReason}">Sai độ pha loãng</span>
+									</td>
+								</tr>
+							</th:block>
+							<tr th:if="${#lists.isEmpty(resultSheet)}">
+								<td colspan="6" class="text-body-secondary">Chưa có chỉ tiêu nào</td>
+							</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</section>
 		</div>
-	</section>
+	</div>
 
-	<!-- BR-12: nút hiện khi vừa đúng trạng thái vừa đúng vai trò (ma trận trong SecurityConfig). Ẩn nút chỉ
-		 cho dễ dùng, gửi thẳng POST vẫn bị SecurityConfig chặn. sec:authorize và th:if đều chỉ bỏ thẻ khi
-		 điều kiện sai, nên đặt chung một thẻ được, thứ tự xử lý không đổi kết quả. -->
-	<div class="d-flex flex-wrap gap-2">
-		<!-- BR-03: chỉ mẫu Đã tiếp nhận mới nhận vào kiểm nghiệm được. -->
-		<form th:if="${sample.status.name() == 'RECEIVED'}" sec:authorize="hasAnyRole('ANALYST', 'REVIEWER')"
-			  method="post" th:action="@{/samples/{id}/start(id=${sample.id})}">
-			<button type="submit" class="btn btn-primary">Nhận kiểm nghiệm</button>
-		</form>
+	<!-- Hai bảng dưới không có dòng tiêu đề cột: mỗi dòng đọc như một mục nhật ký, tên bảng lấy từ tiêu đề card. -->
+	<div class="row g-4 mb-4">
+		<div class="col-lg-6">
+			<!-- BR-04: cũ trước mới sau; @fmt in giờ theo múi giờ ứng dụng (NFR-04). -->
+			<section class="card h-100" aria-labelledby="historyTitle">
+				<div class="card-header">
+					<h2 class="h6 mb-0" id="historyTitle">Lịch sử trạng thái</h2>
+				</div>
+				<div class="card-body">
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0" aria-labelledby="historyTitle">
+							<tbody data-testid="history">
+							<tr th:each="h : ${history}">
+								<td class="small text-body-secondary text-nowrap">
+									<span th:text="${@fmt.dateTimeSeconds(h.changedAt)}"></span>
+									· <strong class="text-body" th:text="${h.changedBy}"></strong>
+								</td>
+								<td>
+									<span class="text-nowrap">
+										<!-- th:replace chạy trước th:if nếu đặt cùng thẻ, nên điều kiện nằm ở th:block bọc ngoài. -->
+										<th:block th:if="${h.fromStatus == null}">Tạo mới</th:block>
+										<th:block th:unless="${h.fromStatus == null}">
+											<span th:replace="~{fragments/layout :: statusBadge(${h.fromStatus})}"></span>
+										</th:block>
+										→
+										<span th:replace="~{fragments/layout :: statusBadge(${h.toStatus})}"></span>
+									</span>
+									<div class="small text-body-secondary" th:text="${h.reason}"></div>
+								</td>
+							</tr>
+							<tr th:if="${#lists.isEmpty(history)}">
+								<td colspan="2" class="text-body-secondary">Chưa có lịch sử</td>
+							</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</section>
+		</div>
 
-		<!-- BR-05: mẫu đã kết thúc (Hoàn thành, Đã hủy) thì không hủy được nữa. -->
-		<button type="button" class="btn btn-outline-danger" th:unless="${sample.status.terminal}"
-				sec:authorize="hasAnyRole('RECEPTIONIST', 'REVIEWER')"
-				data-bs-toggle="modal" data-bs-target="#cancelModal">Hủy mẫu</button>
+		<div class="col-lg-6">
+			<!-- BR-10: audit trail của kết quả, cũ trước mới sau, mọi vai trò xem được; @fmt in giờ theo múi giờ ứng
+				 dụng. Ô thao tác không mang thuộc tính nào: ResultFlowIntegrationTests đếm dòng theo <td>Nhập</td>. -->
+			<section class="card h-100" aria-labelledby="resultAuditTitle">
+				<div class="card-header">
+					<h2 class="h6 mb-0" id="resultAuditTitle">Nhật ký kết quả (audit trail)</h2>
+				</div>
+				<div class="card-body">
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0" aria-labelledby="resultAuditTitle">
+							<tbody data-testid="audit">
+							<tr th:each="a : ${resultAudit}">
+								<td class="small text-body-secondary text-nowrap">
+									<span th:text="${@fmt.dateTimeSeconds(a.actedAt)}"></span>
+									· <strong class="text-body" th:text="${a.actor}"></strong>
+								</td>
+								<td th:text="${a.action.label}"></td>
+								<td>
+									<span th:text="${a.parameterName}"></span>
+									<div class="small text-body-secondary" th:switch="${a.action.name()}">
+										<th:block th:case="'ENTER'" th:text="|${a.value} ${a.unit} – ${a.verdict.label}|"></th:block>
+										<th:block th:case="'APPROVE'">Đã duyệt</th:block>
+										<th:block th:case="'REJECT'" th:text="|Lý do: ${a.rejectReason}|"></th:block>
+									</div>
+								</td>
+							</tr>
+							<tr th:if="${#lists.isEmpty(resultAudit)}">
+								<td colspan="3" class="text-body-secondary">Chưa có thao tác nào trên kết quả</td>
+							</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</section>
+		</div>
+	</div>
 
-		<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại danh sách</a>
+	<!-- BR-11: hộp thoại xác nhận chỉ có khi đủ điều kiện, như modal từ chối. Kết luận hiện ở đây là bản tính sẵn;
+		 khi gửi, tầng nghiệp vụ khóa mẫu rồi tính lại. -->
+	<div th:if="${sample.status.name() == 'IN_TESTING' and conclusion.ready()}" sec:authorize="hasRole('REVIEWER')"
+		 class="modal fade" id="concludeModal" tabindex="-1" aria-labelledby="concludeModalTitle" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<form class="modal-content" method="post" th:action="@{/samples/{id}/conclude(id=${sample.id})}">
+				<div class="modal-header">
+					<h2 class="modal-title h5" id="concludeModalTitle" th:text="|Kết luận mẫu ${sample.code}|"></h2>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+				</div>
+				<div class="modal-body">
+					<p class="mb-2">Kết luận:
+						<span th:replace="~{fragments/layout :: verdictBadge(${conclusion.verdict()})}"></span>
+					</p>
+					<div class="form-text">Mẫu chuyển sang Hoàn thành; sau đó không nhập, duyệt kết quả hay hủy mẫu được nữa.</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+					<button type="submit" class="btn btn-primary">Kết luận</button>
+				</div>
+			</form>
+		</div>
 	</div>
 
 	<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalTitle" aria-hidden="true"
