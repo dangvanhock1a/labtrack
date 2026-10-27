@@ -12,45 +12,104 @@
 		<a class="btn btn-primary" th:href="@{/samples/new}" sec:authorize="hasRole('RECEPTIONIST')">Đăng ký mẫu</a>
 	</div>
 
-	<p class="text-body-secondary" th:if="${#lists.isEmpty(samples)}">Chưa có mẫu nào.</p>
+	<!-- BR-13: form gửi bằng GET nên bộ lọc nằm trên URL. Form không gửi số trang, nên lọc lại thì về trang 1. -->
+	<form class="row g-2 align-items-end mb-3" method="get" th:action="@{/samples}" th:object="${filter}">
+		<div class="col-12 col-lg-4">
+			<label for="q" class="form-label">Từ khóa</label>
+			<input type="search" th:field="*{q}" class="form-control" placeholder="Mã mẫu, sản phẩm hoặc số lô">
+		</div>
+		<div class="col-6 col-md-4 col-lg-2">
+			<label for="status" class="form-label">Trạng thái</label>
+			<select th:field="*{status}" class="form-select">
+				<option value="">Tất cả</option>
+				<option th:each="st : ${statuses}" th:value="${st}" th:text="${st.label}"></option>
+			</select>
+		</div>
+		<div class="col-6 col-md-4 col-lg-2">
+			<label for="priority" class="form-label">Ưu tiên</label>
+			<select th:field="*{priority}" class="form-select">
+				<option value="">Tất cả</option>
+				<option th:each="pr : ${priorities}" th:value="${pr}" th:text="${pr.label}"></option>
+			</select>
+		</div>
+		<div class="col-12 col-md-4 col-lg-2">
+			<label for="sampleType" class="form-label">Loại mẫu</label>
+			<select th:field="*{sampleType}" class="form-select">
+				<option value="">Tất cả</option>
+				<option th:each="t : ${sampleTypes}" th:value="${t}" th:text="${t.label}"></option>
+			</select>
+		</div>
+		<div class="col-12 col-lg-2 d-flex gap-2">
+			<button type="submit" class="btn btn-primary">Lọc</button>
+			<a class="btn btn-outline-secondary text-nowrap" th:href="@{/samples}">Xóa bộ lọc</a>
+		</div>
+	</form>
 
-	<div class="table-responsive" th:unless="${#lists.isEmpty(samples)}">
-		<table class="table table-hover align-middle">
-			<thead>
-			<tr>
-				<th scope="col">Mã mẫu</th>
-				<th scope="col">Sản phẩm</th>
-				<th scope="col">Số lô</th>
-				<th scope="col">Loại mẫu</th>
-				<th scope="col">Ưu tiên</th>
-				<th scope="col" class="text-center">Trạng thái</th>
-				<th scope="col">Kết luận</th>
-				<th scope="col">Thời điểm nhận</th>
-				<th scope="col">Hạn trả</th>
-			</tr>
-			</thead>
-			<tbody>
-			<tr th:each="s : ${samples}">
-				<td><a th:href="@{/samples/{id}(id=${s.id})}" th:text="${s.code}"></a></td>
-				<td th:text="${s.productName}"></td>
-				<td th:text="${s.batchNo}"></td>
-				<td th:text="${s.sampleType.label}"></td>
-				<td><span th:replace="~{fragments/layout :: priorityBadge(${s.priority})}"></span></td>
-				<td class="text-center">
-					<span th:replace="~{fragments/layout :: statusBadge(${s.status})}"></span>
-				</td>
-				<!-- BR-11: chỉ mẫu Hoàn thành có kết luận. th:if nằm ở th:block vì thẻ bên trong dùng th:replace. -->
-				<td>
-					<th:block th:if="${s.conclusion != null}">
-						<span th:replace="~{fragments/layout :: verdictBadge(${s.conclusion})}"></span>
-					</th:block>
-				</td>
-				<td th:text="${@fmt.dateTime(s.receivedAt)}"></td>
-				<td th:text="${@fmt.date(s.dueDate)}"></td>
-			</tr>
-			</tbody>
-		</table>
-	</div>
+	<p class="text-body-secondary" th:if="${samplePage.total() == 0 and !filter.active}">Chưa có mẫu nào.</p>
+	<p class="text-body-secondary" th:if="${samplePage.total() == 0 and filter.active}">Không có mẫu nào khớp bộ lọc.</p>
+
+	<th:block th:if="${samplePage.total() > 0}">
+		<p class="text-body-secondary mb-2"
+		   th:text="|Hiển thị ${samplePage.from()}–${samplePage.to()} / tổng ${samplePage.total()} mẫu|">Hiển thị 1–20 / tổng 45 mẫu</p>
+
+		<div class="table-responsive">
+			<table class="table table-hover align-middle">
+				<thead>
+				<tr>
+					<th scope="col">Mã mẫu</th>
+					<th scope="col">Sản phẩm</th>
+					<th scope="col">Số lô</th>
+					<th scope="col">Loại mẫu</th>
+					<th scope="col">Ưu tiên</th>
+					<th scope="col" class="text-center">Trạng thái</th>
+					<th scope="col" class="text-center">Đã duyệt</th>
+					<th scope="col">Kết luận</th>
+					<th scope="col">Thời điểm nhận</th>
+					<th scope="col">Hạn trả</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr th:each="s : ${samplePage.samples()}">
+					<td><a th:href="@{/samples/{id}(id=${s.id})}" th:text="${s.code}"></a></td>
+					<td th:text="${s.productName}"></td>
+					<td th:text="${s.batchNo}"></td>
+					<td th:text="${s.sampleType.label}"></td>
+					<td><span th:replace="~{fragments/layout :: priorityBadge(${s.priority})}"></span></td>
+					<td class="text-center">
+						<span th:replace="~{fragments/layout :: statusBadge(${s.status})}"></span>
+					</td>
+					<!-- BR-13: số kết quả Đã duyệt / số kết quả hiệu lực (Chờ duyệt hoặc Đã duyệt). -->
+					<td class="text-center text-nowrap" th:text="|${s.approvedCount}/${s.effectiveCount}|">1/2</td>
+					<!-- BR-11: chỉ mẫu Hoàn thành có kết luận. th:if nằm ở th:block vì thẻ bên trong dùng th:replace. -->
+					<td>
+						<th:block th:if="${s.conclusion != null}">
+							<span th:replace="~{fragments/layout :: verdictBadge(${s.conclusion})}"></span>
+						</th:block>
+					</td>
+					<td th:text="${@fmt.dateTime(s.receivedAt)}"></td>
+					<td th:text="${@fmt.date(s.dueDate)}"></td>
+				</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Chỉ có Trang trước và Trang sau: dãy số trang dài theo số mẫu, không vừa màn hình 360 px (NFR-08). Vị trí
+			 hiện tại đã có ở nhãn "Hiển thị a–b / tổng N mẫu". -->
+		<nav th:if="${samplePage.totalPages() > 1}" aria-label="Phân trang">
+			<ul class="pagination">
+				<li class="page-item" th:classappend="${samplePage.hasPrevious()} ? '' : 'disabled'">
+					<a th:if="${samplePage.hasPrevious()}" class="page-link"
+					   th:href="@{${filter.pageUrl(samplePage.page() - 1)}}">Trang trước</a>
+					<span th:unless="${samplePage.hasPrevious()}" class="page-link">Trang trước</span>
+				</li>
+				<li class="page-item" th:classappend="${samplePage.hasNext()} ? '' : 'disabled'">
+					<a th:if="${samplePage.hasNext()}" class="page-link"
+					   th:href="@{${filter.pageUrl(samplePage.page() + 1)}}">Trang sau</a>
+					<span th:unless="${samplePage.hasNext()}" class="page-link">Trang sau</span>
+				</li>
+			</ul>
+		</nav>
+	</th:block>
 </main>
 
 <th:block th:replace="~{fragments/layout :: scripts}"></th:block>

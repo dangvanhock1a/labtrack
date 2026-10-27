@@ -52,7 +52,7 @@ class LabSampleServiceTest {
 	private final TestResultMapper resultMapper = mock(TestResultMapper.class);
 
 	private final LabSampleService service = new LabSampleService(sampleMapper, historyMapper, resultMapper,
-			mock(SampleCodeGenerator.class), CLOCK);
+			mock(SampleCodeGenerator.class), CLOCK, 20);
 
 	private void givenSampleIn(SampleStatus status) {
 		LabSample sample = new LabSample();

@@ -8,10 +8,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
@@ -49,13 +51,18 @@ public class LabSampleService {
 
 	private final Clock clock;
 
+	/** Số mẫu mỗi trang danh sách (BR-13: 20), đọc từ {@code labtrack.page-size}. */
+	private final int pageSize;
+
 	public LabSampleService(LabSampleMapper sampleMapper, StatusHistoryMapper historyMapper,
-			TestResultMapper resultMapper, SampleCodeGenerator codeGenerator, Clock clock) {
+			TestResultMapper resultMapper, SampleCodeGenerator codeGenerator, Clock clock,
+			@Value("${labtrack.page-size}") int pageSize) {
 		this.sampleMapper = sampleMapper;
 		this.historyMapper = historyMapper;
 		this.resultMapper = resultMapper;
 		this.codeGenerator = codeGenerator;
 		this.clock = clock;
+		this.pageSize = pageSize;
 	}
 
 	/** Giá trị điền sẵn cho form đăng ký: ưu tiên Bình thường, nhận lúc này, hạn trả sau 7 ngày (BR-02, BR-13). */
@@ -101,10 +108,30 @@ public class LabSampleService {
 		return sample;
 	}
 
-	public List<LabSample> findAll() {
-		List<LabSample> samples = sampleMapper.findAll();
+	/**
+	 * Một trang danh sách mẫu theo bộ lọc (BR-13). Đếm trước rồi mới lấy trang, để số trang ngoài khoảng (gõ tay trên
+	 * URL, hay trang cuối vừa hết mẫu) được kéo về trang có thật gần nhất thay vì hiện trang trống. Đúng hai câu SQL
+	 * cho một trang (NFR-01): tiến độ đếm ngay trong câu lấy trang.
+	 */
+	public SamplePage search(SampleFilter filter, int page) {
+		String keyword = likePattern(filter.keyword());
+		long total = sampleMapper.countSearch(filter, keyword);
+		int current = Math.clamp(page, 1, SamplePage.pageCount(total, pageSize));
+		List<LabSample> samples = sampleMapper.search(filter, keyword, pageSize, (current - 1) * pageSize);
 		samples.forEach(this::toClockZone);
-		return samples;
+		return new SamplePage(samples, current, pageSize, total);
+	}
+
+	/**
+	 * Mẫu LIKE "chứa từ khóa", hoặc {@code null} khi không có từ khóa. Escape {@code \} trước rồi mới tới {@code %} và
+	 * {@code _}, để chúng là ký tự thường (BR-13) kể cả khi người dùng gõ {@code \}; ký tự escape khớp
+	 * {@code ESCAPE '\'} trong {@code LabSampleMapper.xml}.
+	 */
+	static String likePattern(String keyword) {
+		if (keyword == null || keyword.isBlank()) {
+			return null;
+		}
+		return "%" + keyword.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
 	}
 
 	public Optional<LabSample> findById(long id) {

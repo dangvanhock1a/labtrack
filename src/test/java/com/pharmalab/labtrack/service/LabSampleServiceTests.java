@@ -61,7 +61,8 @@ class LabSampleServiceTests {
 			call.getArgument(0, LabSample.class).setId(NEW_SAMPLE_ID);
 			return null;
 		}).when(sampleMapper).insert(any());
-		return new LabSampleService(sampleMapper, historyMapper, mock(TestResultMapper.class), codeGenerator, clock);
+		return new LabSampleService(sampleMapper, historyMapper, mock(TestResultMapper.class), codeGenerator, clock,
+				20);
 	}
 
 	private static NewSample newSample(LocalDateTime receivedAt, LocalDate dueDate) {

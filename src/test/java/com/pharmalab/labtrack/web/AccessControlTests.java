@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.hamcrest.Matcher;
@@ -48,6 +50,7 @@ import com.pharmalab.labtrack.domain.UserRole;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.security.WithAppUser;
 import com.pharmalab.labtrack.service.LabSampleService;
+import com.pharmalab.labtrack.service.SamplePage;
 import com.pharmalab.labtrack.service.TestResultService;
 
 /**
@@ -95,6 +98,11 @@ class AccessControlTests {
 		sample.setDueDate(LocalDate.parse("2026-10-14"));
 		sample.setCreatedBy("tiepnhan");
 		return sample;
+	}
+
+	/** Danh sách mẫu rỗng: service là mock, chưa stub thì {@code search} trả null và trang danh sách lỗi. */
+	private void givenNoSamples() {
+		when(sampleService.search(any(), anyInt())).thenReturn(new SamplePage(List.of(), 1, 20, 0));
 	}
 
 	private static Matcher<String> presentIf(boolean expected, String text) {
@@ -162,6 +170,8 @@ class AccessControlTests {
 	@WithAppUser(username = "kiemnghiem1", role = ANALYST, fullName = "Lê Văn Minh")
 	@DisplayName("TC-BR12-07 Menu hiện họ tên, vai trò của người đăng nhập và nút Đăng xuất")
 	void navbarShowsSignedInUser() throws Exception {
+		givenNoSamples();
+
 		mockMvc.perform(get("/samples"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString("Lê Văn Minh")))
@@ -199,6 +209,8 @@ class AccessControlTests {
 			MANAGER,        false
 			""")
 	void registerLinkOnlyForReceptionist(UserRole role, boolean visible) throws Exception {
+		givenNoSamples();
+
 		mockMvc.perform(get("/samples").with(user(principal("nguoidung", "Người dùng thử", role))))
 			.andExpect(status().isOk())
 			.andExpect(content().string(presentIf(visible, "href=\"/samples/new\"")));

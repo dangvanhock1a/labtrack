@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.Verdict;
 
@@ -25,8 +26,18 @@ public interface LabSampleMapper {
 	 */
 	Optional<LabSample> lockById(long id);
 
-	/** Mọi mẫu, thời điểm nhận mới nhất trước. */
-	List<LabSample> findAll();
+	/**
+	 * Số mẫu khớp bộ lọc (BR-13). {@code keyword} là mẫu LIKE đã escape, hoặc {@code null} khi không tìm theo từ khóa;
+	 * {@code filter.keyword()} không được đọc ở đây.
+	 */
+	long countSearch(@Param("filter") SampleFilter filter, @Param("keyword") String keyword);
+
+	/**
+	 * Một trang mẫu khớp bộ lọc, cùng điều kiện với {@link #countSearch}: Khẩn trước rồi nhận mới nhất trước (BR-13),
+	 * mỗi mẫu kèm {@code approvedCount} và {@code effectiveCount}.
+	 */
+	List<LabSample> search(@Param("filter") SampleFilter filter, @Param("keyword") String keyword,
+			@Param("limit") int limit, @Param("offset") int offset);
 
 	/**
 	 * Đổi trạng thái nếu mẫu vẫn còn ở {@code change.fromStatus()} (BR-03). Trả về số dòng được
