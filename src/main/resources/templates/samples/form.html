@@ -35,6 +35,15 @@
 			<div class="invalid-feedback" data-testid="sampleType-error" th:errors="*{sampleType}"></div>
 		</div>
 
+		<!-- BR-13: không có lựa chọn trống, vì form mới đã chọn sẵn Bình thường (LabSampleService.newSampleDefaults). -->
+		<div class="mb-3">
+			<label for="priority" class="form-label">Mức ưu tiên</label>
+			<select th:field="*{priority}" class="form-select" th:errorclass="is-invalid">
+				<option th:each="p : ${priorities}" th:value="${p}" th:text="${p.label}"></option>
+			</select>
+			<div class="invalid-feedback" th:errors="*{priority}"></div>
+		</div>
+
 		<div class="row">
 			<div class="col-sm-6 mb-3">
 				<label for="receivedAt" class="form-label">Thời điểm nhận</label>

@@ -16,6 +16,8 @@ public class LabSample {
 
 	private SampleType sampleType;
 
+	private SamplePriority priority;
+
 	private SampleStatus status;
 
 	private OffsetDateTime receivedAt;
@@ -32,6 +34,14 @@ public class LabSample {
 	private Verdict conclusion;
 
 	private OffsetDateTime completedAt;
+
+	/**
+	 * BR-13: số kết quả Đã duyệt và số kết quả hiệu lực (Chờ duyệt hoặc Đã duyệt) của mẫu. Không phải cột của
+	 * {@code lab_sample}: chỉ {@code LabSampleMapper.search} điền, đường đọc khác để {@code null}.
+	 */
+	private Integer approvedCount;
+
+	private Integer effectiveCount;
 
 	public Long getId() {
 		return id;
@@ -71,6 +81,14 @@ public class LabSample {
 
 	public void setSampleType(SampleType sampleType) {
 		this.sampleType = sampleType;
+	}
+
+	public SamplePriority getPriority() {
+		return priority;
+	}
+
+	public void setPriority(SamplePriority priority) {
+		this.priority = priority;
 	}
 
 	public SampleStatus getStatus() {
@@ -135,6 +153,22 @@ public class LabSample {
 
 	public void setCompletedAt(OffsetDateTime completedAt) {
 		this.completedAt = completedAt;
+	}
+
+	public Integer getApprovedCount() {
+		return approvedCount;
+	}
+
+	public void setApprovedCount(Integer approvedCount) {
+		this.approvedCount = approvedCount;
+	}
+
+	public Integer getEffectiveCount() {
+		return effectiveCount;
+	}
+
+	public void setEffectiveCount(Integer effectiveCount) {
+		this.effectiveCount = effectiveCount;
 	}
 
 }

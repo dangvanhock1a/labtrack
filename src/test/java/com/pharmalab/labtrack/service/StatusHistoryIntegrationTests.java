@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusHistory;
@@ -82,14 +83,14 @@ class StatusHistoryIntegrationTests {
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	@DisplayName("TC-BR04-10 Ghi dòng lịch sử lỗi thì việc đăng ký rollback theo, không có mẫu nào được tạo")
 	void historyFailureRollsBackRegistration() {
-		int before = sampleService.findAll().size();
+		long before = sampleService.search(SampleFilter.NONE, 1).total();
 
 		// lab_sample.created_by (V1) nhận chuỗi trắng, ck_status_history_changed_by (V2) thì không:
 		// câu INSERT mẫu chạy được, câu INSERT lịch sử ngay sau đó bị CSDL chặn.
 		assertThatThrownBy(() -> registerSample("   ")).isInstanceOf(DataIntegrityViolationException.class)
 			.hasMessageContaining("ck_status_history_changed_by");
 
-		assertThat(sampleService.findAll()).hasSize(before);
+		assertThat(sampleService.search(SampleFilter.NONE, 1).total()).isEqualTo(before);
 	}
 
 }

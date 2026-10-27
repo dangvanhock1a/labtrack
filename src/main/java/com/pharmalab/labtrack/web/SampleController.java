@@ -25,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SamplePriority;
+import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.domain.Verdict;
@@ -77,9 +79,23 @@ public class SampleController {
 		return SampleType.values();
 	}
 
+	@ModelAttribute("priorities")
+	SamplePriority[] priorities() {
+		return SamplePriority.values();
+	}
+
+	@ModelAttribute("statuses")
+	SampleStatus[] statuses() {
+		return SampleStatus.values();
+	}
+
+	/**
+	 * Danh sách mẫu có tìm kiếm, lọc và phân trang (BR-13). {@code bindingErrors} có mặt để giá trị lọc hay số trang
+	 * không đổi được kiểu không thành lỗi 400: trường đó để trống, tức là không lọc theo nó.
+	 */
 	@GetMapping
-	String list(Model model) {
-		model.addAttribute("samples", sampleService.findAll());
+	String list(@ModelAttribute("filter") SampleFilterForm filter, BindingResult bindingErrors, Model model) {
+		model.addAttribute("samplePage", sampleService.search(filter.toFilter(), filter.pageOrFirst()));
 		return "samples/list";
 	}
 

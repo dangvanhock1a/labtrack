@@ -54,6 +54,14 @@
 						 REJECTED: 'text-bg-secondary'} }"
 	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Chờ duyệt</span>
 
+<!-- Nhãn mức ưu tiên (BR-13): chỉ Khẩn nổi màu; vàng chứ không đỏ, vì đỏ dành cho Không đạt và Quá hạn (BR-14).
+	 So theo tên hằng SamplePriority: đổi tên hằng phải sửa cả đây. -->
+<span th:fragment="priorityBadge(priority)" class="badge"
+	  th:with="tones=${ {LOW: 'text-bg-light border',
+						 NORMAL: 'text-bg-secondary',
+						 URGENT: 'text-bg-warning'} }"
+	  th:classappend="${tones[priority.name()]}" th:text="${priority.label}">Bình thường</span>
+
 <!-- Đánh giá do hệ thống tính (BR-07) và kết luận mẫu (BR-11): Đạt xanh lá, Không đạt đỏ. -->
 <span th:fragment="verdictBadge(verdict)" class="badge"
 	  th:classappend="${verdict.name() == 'PASS'} ? 'text-bg-success' : 'text-bg-danger'"

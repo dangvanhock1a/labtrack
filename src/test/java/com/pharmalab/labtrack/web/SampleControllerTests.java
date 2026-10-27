@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -25,8 +26,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -44,12 +47,15 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.pharmalab.labtrack.config.SecurityConfig;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.ResultAction;
 import com.pharmalab.labtrack.domain.ResultAudit;
 import com.pharmalab.labtrack.domain.ResultStatus;
+import com.pharmalab.labtrack.domain.SampleFilter;
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusHistory;
@@ -62,7 +68,9 @@ import com.pharmalab.labtrack.service.BusinessException;
 import com.pharmalab.labtrack.service.InvalidStatusTransitionException;
 import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.NewResult;
+import com.pharmalab.labtrack.service.NewSample;
 import com.pharmalab.labtrack.service.ResultSheetRow;
+import com.pharmalab.labtrack.service.SamplePage;
 import com.pharmalab.labtrack.service.TestResultService;
 
 /**
@@ -95,11 +103,19 @@ class SampleControllerTests {
 		sample.setProductName("Paracetamol 500 mg");
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
+		sample.setPriority(SamplePriority.NORMAL);
 		sample.setStatus(status);
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse("2026-10-14"));
 		sample.setCreatedBy("tiepnhan");
+		sample.setApprovedCount(0);
+		sample.setEffectiveCount(0);
 		return sample;
+	}
+
+	/** Danh sách chỉ có các mẫu đã cho, như {@code LabSampleService.search} trả cho trang 1 (BR-13). */
+	private void givenListing(LabSample... samples) {
+		when(sampleService.search(any(), anyInt())).thenReturn(new SamplePage(List.of(samples), 1, 20, samples.length));
 	}
 
 	private void givenSampleIn(SampleStatus status) {
@@ -141,12 +157,12 @@ class SampleControllerTests {
 	@Test
 	@DisplayName("TC-BR02-09 LT-101: JVM chạy UTC, danh sách vẫn hiện thời điểm nhận theo giờ VN (02:00Z → 07/10/2026 09:00)")
 	void listShowsReceivedAtInVietnamTimeEvenWhenJvmIsUtc() throws Exception {
-		// Mock trả thời điểm ở dạng LabSampleService.findAll trả thật: đã qua toClockZone, mang offset của Clock.
+		// Mock trả thời điểm ở dạng LabSampleService.search trả thật: đã qua toClockZone, mang offset của Clock.
 		LabSample sample = sampleIn(SampleStatus.RECEIVED);
 		sample.setReceivedAt(Instant.parse("2026-10-07T02:00:00Z")
 			.atZone(ZoneId.of("Asia/Ho_Chi_Minh"))
 			.toOffsetDateTime());
-		when(sampleService.findAll()).thenReturn(List.of(sample));
+		givenListing(sample);
 
 		TimeZone original = TimeZone.getDefault();
 		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
@@ -166,13 +182,187 @@ class SampleControllerTests {
 	void listShowsReceivedAtInVietnamTimeWhenValueIsUtc() throws Exception {
 		LabSample sample = sampleIn(SampleStatus.RECEIVED);
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T02:00Z"));
-		when(sampleService.findAll()).thenReturn(List.of(sample));
+		givenListing(sample);
 
 		mockMvc.perform(get("/samples"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString("07/10/2026 09:00")))
 			.andExpect(content().string(containsString("14/10/2026")))
 			.andExpect(content().string(not(containsString("07/10/2026 02:00"))));
+	}
+
+	private static MockHttpServletRequestBuilder registration(String priority) {
+		return post("/samples").with(csrf())
+			.param("productName", "Paracetamol 500 mg")
+			.param("batchNo", "PA-2601")
+			.param("sampleType", "FINISHED_PRODUCT")
+			.param("priority", priority);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR13-06 Form đăng ký có select Mức ưu tiên đủ Thấp, Bình thường, Khẩn; Bình thường được chọn sẵn")
+	void registrationFormPreselectsNormalPriority() throws Exception {
+		when(sampleService.newSampleDefaults()).thenReturn(new NewSample(null, null, null, SamplePriority.NORMAL,
+				LocalDateTime.parse("2026-10-09T10:00"), LocalDate.parse("2026-10-16")));
+
+		String html = mockMvc.perform(get("/samples/new"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(html).contains("<label for=\"priority\" class=\"form-label\">Mức ưu tiên</label>")
+			.contains(">Thấp</option>")
+			.contains(">Bình thường</option>")
+			.contains(">Khẩn</option>");
+		assertThat(tagContaining(html, "value=\"NORMAL\"")).contains("selected");
+		assertThat(tagContaining(html, "value=\"LOW\"")).doesNotContain("selected");
+		assertThat(tagContaining(html, "value=\"URGENT\"")).doesNotContain("selected");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR13-07 Gửi form đăng ký chọn Khẩn: tầng nghiệp vụ nhận đúng mức ưu tiên Khẩn")
+	void registrationPassesChosenPriorityToService() throws Exception {
+		when(sampleService.register(any(), eq("tiepnhan"))).thenReturn(sampleIn(SampleStatus.RECEIVED));
+
+		mockMvc.perform(registration("URGENT"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"));
+
+		ArgumentCaptor<NewSample> sent = ArgumentCaptor.forClass(NewSample.class);
+		verify(sampleService).register(sent.capture(), eq("tiepnhan"));
+		assertThat(sent.getValue().priority()).isEqualTo(SamplePriority.URGENT);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR13-08 Request gửi mức ưu tiên lạ (HIGH): hiện lại form với lỗi \"Vui lòng chọn mức ưu tiên\", không gọi service")
+	void unknownPriorityIsRejectedByForm() throws Exception {
+		mockMvc.perform(registration("HIGH"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "priority"))
+			.andExpect(content().string(containsString("Vui lòng chọn mức ưu tiên")));
+
+		verifyNoInteractions(sampleService);
+	}
+
+	@Test
+	@DisplayName("TC-BR13-09 Danh sách có cột Ưu tiên và trang chi tiết có dòng Mức ưu tiên; Khẩn là nhãn vàng")
+	void listAndDetailShowPriorityBadge() throws Exception {
+		LabSample sample = sampleIn(SampleStatus.RECEIVED);
+		sample.setPriority(SamplePriority.URGENT);
+		givenListing(sample);
+		when(sampleService.findById(SAMPLE_ID)).thenReturn(Optional.of(sample));
+
+		String list = mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		assertThat(list).contains("<th scope=\"col\">Ưu tiên</th>");
+		// Tìm từ <tbody>: ô lọc Ưu tiên phía trên bảng cũng có <option>Khẩn</option>.
+		assertThat(tagContaining(list.substring(list.indexOf("<tbody>")), ">Khẩn<")).contains("badge")
+			.contains("text-bg-warning");
+
+		String detail = detailPage();
+		assertThat(detail).contains("<dt class=\"col-sm-5\">Mức ưu tiên</dt>");
+		assertThat(tagContaining(detail, ">Khẩn<")).contains("badge").contains("text-bg-warning");
+	}
+
+	@Test
+	@DisplayName("TC-BR13-17 Bộ lọc đọc từ URL: từ khóa cắt khoảng trắng, đủ 3 điều kiện lọc và số trang xuống service; form lọc có nhãn và giữ giá trị đã chọn")
+	void filterFromUrlReachesServiceAndStaysOnForm() throws Exception {
+		givenListing();
+
+		String html = mockMvc.perform(get("/samples")
+				.param("q", "  PA-26%  ")
+				.param("status", "IN_TESTING")
+				.param("priority", "URGENT")
+				.param("sampleType", "RAW_MATERIAL")
+				.param("page", "2"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		verify(sampleService).search(
+				new SampleFilter("PA-26%", SampleStatus.IN_TESTING, SamplePriority.URGENT, SampleType.RAW_MATERIAL), 2);
+		assertThat(html).contains("<label for=\"q\" class=\"form-label\">Từ khóa</label>")
+			.contains("<label for=\"status\" class=\"form-label\">Trạng thái</label>")
+			.contains("<label for=\"priority\" class=\"form-label\">Ưu tiên</label>")
+			.contains("<label for=\"sampleType\" class=\"form-label\">Loại mẫu</label>");
+		assertThat(tagContaining(html, "name=\"q\"")).contains("value=\"PA-26%\"");
+		assertThat(tagContaining(html, "value=\"IN_TESTING\"")).contains("selected");
+		assertThat(tagContaining(html, "value=\"RECEIVED\"")).doesNotContain("selected");
+		assertThat(tagContaining(html, "value=\"URGENT\"")).contains("selected");
+		assertThat(tagContaining(html, "value=\"RAW_MATERIAL\"")).contains("selected");
+	}
+
+	@Test
+	@DisplayName("TC-BR13-18 Trang giữa: nhãn \"Hiển thị 21–40 / tổng 45 mẫu\", cột Đã duyệt 1/2, link Trang trước/Trang sau giữ bộ lọc kể cả + và % trong từ khóa")
+	void middlePageShowsRangeProgressAndLinksKeepingFilter() throws Exception {
+		LabSample sample = sampleIn(SampleStatus.IN_TESTING);
+		sample.setApprovedCount(1);
+		sample.setEffectiveCount(2);
+		when(sampleService.search(any(), anyInt())).thenReturn(new SamplePage(List.of(sample), 2, 20, 45));
+
+		String html = mockMvc.perform(get("/samples").param("q", "C+ 50%").param("status", "IN_TESTING").param("page", "2"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(html).contains("Hiển thị 21–40 / tổng 45 mẫu")
+			.contains("<th scope=\"col\" class=\"text-center\">Đã duyệt</th>")
+			.contains(">1/2</td>")
+			.contains("aria-label=\"Phân trang\"");
+		// + phải thành %2B: để nguyên thì máy chủ đọc thành dấu cách.
+		assertThat(tagContaining(html, ">Trang trước</a>"))
+			.contains("href=\"/samples?q=C%2B%2050%25&amp;status=IN_TESTING&amp;page=1\"");
+		assertThat(tagContaining(html, ">Trang sau</a>"))
+			.contains("href=\"/samples?q=C%2B%2050%25&amp;status=IN_TESTING&amp;page=3\"");
+
+		mockMvc.perform(get(URI.create("/samples?q=C%2B%2050%25&status=IN_TESTING&page=3")))
+			.andExpect(status().isOk());
+		verify(sampleService).search(new SampleFilter("C+ 50%", SampleStatus.IN_TESTING, null, null), 3);
+	}
+
+	@Test
+	@DisplayName("TC-BR13-19 Giá trị lạ trên URL (trạng thái, ưu tiên, loại mẫu không tồn tại, số trang không phải số) bị bỏ qua: không lỗi, không lọc theo trường đó")
+	void unknownFilterValuesAreIgnored() throws Exception {
+		givenListing();
+
+		mockMvc.perform(get("/samples")
+				.param("status", "DONE")
+				.param("priority", "HIGH")
+				.param("sampleType", "TABLET")
+				.param("page", "abc"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/list"))
+			.andExpect(content().string(containsString("Chưa có mẫu nào.")));
+
+		verify(sampleService).search(SampleFilter.NONE, 1);
+	}
+
+	@Test
+	@DisplayName("TC-BR13-20 Không có mẫu: chưa lọc thì \"Chưa có mẫu nào.\", đang lọc thì \"Không có mẫu nào khớp bộ lọc.\"; không có nhãn Hiển thị, không phân trang")
+	void emptyListMessageDependsOnFilter() throws Exception {
+		givenListing();
+
+		mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Chưa có mẫu nào.")))
+			.andExpect(content().string(not(containsString("Không có mẫu nào khớp bộ lọc."))))
+			.andExpect(content().string(not(containsString("tổng 0 mẫu"))))
+			.andExpect(content().string(not(containsString("aria-label=\"Phân trang\""))));
+		mockMvc.perform(get("/samples").param("priority", "URGENT"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Không có mẫu nào khớp bộ lọc.")))
+			.andExpect(content().string(not(containsString("Chưa có mẫu nào."))))
+			.andExpect(content().string(not(containsString("tổng 0 mẫu"))));
 	}
 
 	@Test

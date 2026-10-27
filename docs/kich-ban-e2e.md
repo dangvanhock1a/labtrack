@@ -1,6 +1,6 @@
 # Kịch bản E2E (I-6)
 
-Kịch bản kiểm thử đầu-cuối cho UC-01..UC-07, chạy bằng Playwright trên `E2ETestBase` (NFR-05, NFR-08). Chưa có code.
+Kịch bản kiểm thử đầu-cuối cho UC-01..UC-07 và UC-09, chạy bằng Playwright trên `E2ETestBase` (NFR-05, NFR-08). Chưa có code.
 
 - **Nguồn:** LT-BRD mục 4, 6–9 và giao diện hiện tại. Repo không có `02-use-case.md`, nên luồng thay thế của từng UC chưa được rà.
 - **Câu chữ:** chữ trong ngoặc kép chép nguyên văn từ template, controller và service. Sửa câu chữ ở code là phải sửa cả kịch bản và test.
@@ -32,11 +32,17 @@ Kịch bản kiểm thử đầu-cuối cho UC-01..UC-07, chạy bằng Playwrig
 | **TC-E2E-06**<br>Gõ thẳng URL không có quyền | UC-02 · BR-12 | Kiểm nghiệm viên (`kiemnghiem1`) | 1. Đăng nhập `kiemnghiem1` | Danh sách mẫu và navbar không có **Đăng ký mẫu** |
 | | | Kiểm nghiệm viên | 2. Gõ thẳng `/samples/new` | HTTP 403, trang "Bạn không có quyền thực hiện thao tác này" nêu vai trò "Kiểm nghiệm viên". Navbar vẫn có "Lê Văn Minh", không phải trang lỗi trắng |
 | | | Kiểm nghiệm viên | 3. Bấm **Về danh sách mẫu** | Về `/samples`, vẫn đăng nhập |
+| **TC-E2E-07**<br>Lọc mẫu Khẩn | UC-09 · BR-13 | Quản lý (`quanly`) | Tiền điều kiện: đăng ký qua service, theo thứ tự, 4 mẫu "Thành phẩm": "Amoxicillin 250 mg" `AM-2601` Khẩn; "Vitamin C 500 mg" `VC-2601` Khẩn, đã nhận kiểm nghiệm; "Ibuprofen 400 mg" `IB-2601` Bình thường; "Cetirizin 10 mg" `CE-2601` Thấp.<br>1. Đăng nhập `quanly` | "Hiển thị 1–4 / tổng 4 mẫu". Các dòng theo thứ tự số lô `VC-2601`, `AM-2601`, `IB-2601`, `CE-2601`: Khẩn đứng đầu dù `CE-2601` nhận sau cùng |
+| | | Quản lý | 2. Ô "Ưu tiên" chọn "Khẩn", bấm **Lọc** | URL có `priority=URGENT`. "Hiển thị 1–2 / tổng 2 mẫu". Chỉ còn 2 dòng `VC-2601`, `AM-2601`, cả hai có nhãn "Khẩn"; không còn `IB-2601`, `CE-2601`. Ô "Ưu tiên" vẫn chọn "Khẩn" |
+| | | Quản lý | 3. Ô "Trạng thái" chọn "Đang kiểm nghiệm", bấm **Lọc** | URL có cả `priority=URGENT` và `status=IN_TESTING`. "Hiển thị 1–1 / tổng 1 mẫu", chỉ còn dòng `VC-2601`. Ô "Ưu tiên" vẫn chọn "Khẩn" |
+| | | Quản lý | 4. Ô "Trạng thái" chọn "Hoàn thành", bấm **Lọc** | Hiện "Không có mẫu nào khớp bộ lọc.", không có bảng và không có dòng "Hiển thị …" |
+| | | Quản lý | 5. Bấm **Xóa bộ lọc** | Về `/samples` không kèm tham số. "Hiển thị 1–4 / tổng 4 mẫu", 4 dòng theo thứ tự như bước 1. Ô "Ưu tiên" và "Trạng thái" về "Tất cả" |
 
 ## Lựa chọn trong kịch bản
 
 - TC-E2E-03 dùng pH `7.5` (tiêu chuẩn 4.5–7) để có một kết quả Không đạt, cho cả hai nhãn Đạt/Không đạt xuất hiện trên giao diện. Cũng vì kết quả này mà mẫu kết luận Không đạt ở bước 7 (BR-11: chỉ Đạt khi mọi kết quả hiệu lực Đạt).
 - TC-E2E-05 bước 3 dùng 5 dấu cách: chuỗi này qua được kiểm tra `required minlength="5"` của trình duyệt, nên đây là cách duy nhất từ giao diện để kiểm tra phần chặn ở server (BR-09). Lý do để trống thì trình duyệt chặn trước khi gửi.
+- TC-E2E-07 đăng ký mẫu Thấp `CE-2601` sau cùng. Nếu danh sách chỉ xếp theo ngày nhận thì mẫu này đứng đầu, nên bước 1 chỉ qua khi mức ưu tiên được xếp trước. `VC-2601` được nhận kiểm nghiệm để ở bước 3, thêm bộ lọc trạng thái còn đúng 1 trong 2 mẫu Khẩn: hai bộ lọc kết hợp với nhau, bộ lọc sau không thay bộ lọc trước. Vai trò là `quanly` vì tra cứu là việc chính của Quản lý (mục 4 LT-BRD) và chưa kịch bản nào dùng tài khoản này.
 
 ## Đã quyết
 

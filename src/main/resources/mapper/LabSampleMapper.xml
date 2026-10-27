@@ -3,14 +3,14 @@
 <mapper namespace="com.pharmalab.labtrack.persistence.LabSampleMapper">
 
 	<sql id="columns">
-		id, code, product_name, batch_no, sample_type, status,
+		id, code, product_name, batch_no, sample_type, priority, status,
 		received_at, due_date, created_by, created_at, updated_at, conclusion, completed_at
 	</sql>
 
 	<insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
-		INSERT INTO lab_sample (code, product_name, batch_no, sample_type, status,
+		INSERT INTO lab_sample (code, product_name, batch_no, sample_type, priority, status,
 		                        received_at, due_date, created_by)
-		VALUES (#{code}, #{productName}, #{batchNo}, #{sampleType}, #{status},
+		VALUES (#{code}, #{productName}, #{batchNo}, #{sampleType}, #{priority}, #{status},
 		        #{receivedAt}, #{dueDate}, #{createdBy})
 	</insert>
 
@@ -31,10 +31,59 @@
 		FOR UPDATE
 	</select>
 
-	<select id="findAll" resultType="LabSample">
-		SELECT <include refid="columns"/>
+	<!--
+		BR-13: điều kiện chung của countSearch và search, nên số đếm luôn khớp các dòng được liệt kê. keyword là mẫu
+		LIKE đã escape \, %, _ ở LabSampleService, nên % và _ người dùng gõ được so như ký tự thường. ILIKE gập chữ hoa
+		theo collation; collation mặc định đi theo locale của hệ điều hành chạy PostgreSQL, và locale Windows
+		Japanese_Japan.932 không gập Í, Á, É, Ô… nên "kính" không tìm thấy "KÍNH". pg_c_utf8 (collation có sẵn từ
+		PostgreSQL 17, cần CSDL mã hóa UTF8) gập theo bảng Unicode, giống nhau trên mọi máy chủ.
+	-->
+	<sql id="searchWhere">
+		<where>
+			<if test="keyword != null">
+				(code COLLATE pg_c_utf8 ILIKE #{keyword} ESCAPE '\'
+				 OR product_name COLLATE pg_c_utf8 ILIKE #{keyword} ESCAPE '\'
+				 OR batch_no COLLATE pg_c_utf8 ILIKE #{keyword} ESCAPE '\')
+			</if>
+			<if test="filter.status != null">AND status = #{filter.status}</if>
+			<if test="filter.priority != null">AND priority = #{filter.priority}</if>
+			<if test="filter.sampleType != null">AND sample_type = #{filter.sampleType}</if>
+		</where>
+	</sql>
+
+	<select id="countSearch" resultType="long">
+		SELECT count(*)
 		FROM lab_sample
-		ORDER BY received_at DESC, id DESC
+		<include refid="searchWhere"/>
+	</select>
+
+	<!--
+		BR-13: Khẩn trước, rồi Bình thường, rồi Thấp (CASE ghi tên hằng SamplePriority nguyên văn); cùng mức thì nhận
+		mới nhất trước, id làm khóa cuối để hai trang liền nhau không lặp hay sót dòng.
+	-->
+	<sql id="searchOrder">
+		ORDER BY CASE priority WHEN 'URGENT' THEN 0 WHEN 'NORMAL' THEN 1 ELSE 2 END, received_at DESC, id DESC
+	</sql>
+
+	<!--
+		BR-13: cắt trang trong subquery trước, rồi mới đếm tiến độ bằng LATERAL. Đặt subquery đếm ở danh sách cột thì
+		PostgreSQL tính nó cho mọi dòng tới OFFSET + LIMIT (EXPLAIN ANALYZE trên PostgreSQL 18), tức trang cuối của danh
+		sách dài đếm cả những dòng bị bỏ qua. ORDER BY lặp lại ở ngoài vì SQL không giữ thứ tự của subquery. Hiệu lực =
+		Chờ duyệt hoặc Đã duyệt, như TestResultMapper.existsEffective; điều kiện này trùng điều kiện của index một phần
+		uq_test_result_effective (V4), nên PostgreSQL đếm được qua index đó.
+	-->
+	<select id="search" resultType="LabSample">
+		SELECT page.*, progress.approved_count, progress.effective_count
+		FROM (SELECT <include refid="columns"/>
+		      FROM lab_sample
+		      <include refid="searchWhere"/>
+		      <include refid="searchOrder"/>
+		      LIMIT #{limit} OFFSET #{offset}) page
+		CROSS JOIN LATERAL (SELECT count(*) FILTER (WHERE r.status = 'APPROVED') AS approved_count,
+		                           count(*) AS effective_count
+		                    FROM test_result r
+		                    WHERE r.sample_id = page.id AND r.status IN ('PENDING', 'APPROVED')) progress
+		<include refid="searchOrder"/>
 	</select>
 
 	<!--

@@ -1,7 +1,7 @@
 ---
 paths:
   - "src/main/resources/db/**/*.sql"
-  - "src/main/java/**/domain/{SampleStatus,SampleType,ResultStatus,Verdict,ResultAction,UserRole}.java"
+  - "src/main/java/**/domain/{SampleStatus,SampleType,SamplePriority,ResultStatus,Verdict,ResultAction,UserRole}.java"
   - "src/main/resources/application*.yml"
 ---
 # CSDL và migration
@@ -12,8 +12,8 @@ paths:
 - `test_result`: không DELETE/TRUNCATE; UPDATE đúng một lần PENDING → APPROVED/REJECTED (`guard_test_result_update`). Nhập lại = INSERT dòng mới có `replaces_id`.
 - `result_audit` chỉ được INSERT; UPDATE/DELETE/TRUNCATE bị trigger chặn.
 - Bảng tham chiếu mới có dữ liệu nạp trong migration (như `test_parameter`) → thêm tên vào `NOT IN (…)` của `e2e/DbCleaner`, nếu không E2E xóa mất.
-- Hằng enum trong CHECK. `SampleStatus`: `ck_lab_sample_status` (V1), `ck_status_history_from/_to/_new/_cancel_reason` (V2). `SampleType`: `ck_lab_sample_type` (V1).
-- `UserRole`: `ck_app_user_role` (V3). `ResultStatus`: `ck_test_result_status/_review/_reject_reason` + hàm `guard_test_result_update` (V4). `Verdict`: `ck_test_result_verdict/_verdict_spec` (V4), `ck_lab_sample_conclusion` (V5). `ResultAction`: `ck_result_audit_action`.
+- Hằng enum trong CHECK. `SampleStatus`: `ck_lab_sample_status` (V1), `ck_status_history_from/_to/_new/_cancel_reason` (V2). `SampleType`: `ck_lab_sample_type` (V1). `SamplePriority`: `ck_lab_sample_priority` + `DEFAULT 'NORMAL'` (V6), thứ tự sắp `CASE priority WHEN 'URGENT'…` trong `LabSampleMapper.xml` (`searchOrder`).
+- `UserRole`: `ck_app_user_role` (V3). `ResultStatus`: `ck_test_result_status/_review/_reject_reason` + hàm `guard_test_result_update` (V4), bộ đếm Đã duyệt / hiệu lực của `LabSampleMapper.search`. `Verdict`: `ck_test_result_verdict/_verdict_spec` (V4), `ck_lab_sample_conclusion` (V5). `ResultAction`: `ck_result_audit_action`.
 - Thêm, đổi hay xóa hằng → migration mới thay các CHECK/hàm trên, rồi sửa chuỗi trong `fragments/layout.html`, `samples/detail.html`, `hasRole('…')`. Sai: chỉ sửa enum Java, vì INSERT giá trị mới sẽ vi phạm CHECK lúc chạy.
 - `ck_lab_sample_due_date` (V1) ghi cứng `'Asia/Ho_Chi_Minh'`: đổi `labtrack.time-zone` → viết migration thay ràng buộc này.
 - `db/devdata` chỉ chứa dữ liệu giả (NFR-07); DDL đặt ở `db/migration`.
