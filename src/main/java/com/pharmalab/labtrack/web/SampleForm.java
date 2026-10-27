@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.format.annotation.DateTimeFormat;
 
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.service.NewSample;
 
@@ -32,6 +33,12 @@ public class SampleForm {
 	@NotNull(message = "Vui lòng chọn loại mẫu")
 	private SampleType sampleType;
 
+	/**
+	 * BR-13: không có {@code @NotNull}. Như thời điểm nhận và hạn trả, để trống thì tầng nghiệp vụ dùng mặc định
+	 * (Bình thường); select trên form luôn có sẵn một lựa chọn nên chỉ request tự dựng mới gửi thiếu.
+	 */
+	private SamplePriority priority;
+
 	@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
 	private LocalDateTime receivedAt;
 
@@ -43,13 +50,14 @@ public class SampleForm {
 		form.setProductName(sample.productName());
 		form.setBatchNo(sample.batchNo());
 		form.setSampleType(sample.sampleType());
+		form.setPriority(sample.priority());
 		form.setReceivedAt(sample.receivedAt());
 		form.setDueDate(sample.dueDate());
 		return form;
 	}
 
 	NewSample toNewSample() {
-		return new NewSample(productName, batchNo, sampleType, receivedAt, dueDate);
+		return new NewSample(productName, batchNo, sampleType, priority, receivedAt, dueDate);
 	}
 
 	public String getProductName() {
@@ -74,6 +82,14 @@ public class SampleForm {
 
 	public void setSampleType(SampleType sampleType) {
 		this.sampleType = sampleType;
+	}
+
+	public SamplePriority getPriority() {
+		return priority;
+	}
+
+	public void setPriority(SamplePriority priority) {
+		this.priority = priority;
 	}
 
 	public LocalDateTime getReceivedAt() {

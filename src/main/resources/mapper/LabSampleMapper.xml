@@ -3,14 +3,14 @@
 <mapper namespace="com.pharmalab.labtrack.persistence.LabSampleMapper">
 
 	<sql id="columns">
-		id, code, product_name, batch_no, sample_type, status,
+		id, code, product_name, batch_no, sample_type, priority, status,
 		received_at, due_date, created_by, created_at, updated_at, conclusion, completed_at
 	</sql>
 
 	<insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
-		INSERT INTO lab_sample (code, product_name, batch_no, sample_type, status,
+		INSERT INTO lab_sample (code, product_name, batch_no, sample_type, priority, status,
 		                        received_at, due_date, created_by)
-		VALUES (#{code}, #{productName}, #{batchNo}, #{sampleType}, #{status},
+		VALUES (#{code}, #{productName}, #{batchNo}, #{sampleType}, #{priority}, #{status},
 		        #{receivedAt}, #{dueDate}, #{createdBy})
 	</insert>
 

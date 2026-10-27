@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.domain.Verdict;
@@ -75,6 +76,11 @@ public class SampleController {
 	@ModelAttribute("sampleTypes")
 	SampleType[] sampleTypes() {
 		return SampleType.values();
+	}
+
+	@ModelAttribute("priorities")
+	SamplePriority[] priorities() {
+		return SamplePriority.values();
 	}
 
 	@GetMapping

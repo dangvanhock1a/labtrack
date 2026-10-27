@@ -22,6 +22,7 @@
 				<th scope="col">Sản phẩm</th>
 				<th scope="col">Số lô</th>
 				<th scope="col">Loại mẫu</th>
+				<th scope="col">Ưu tiên</th>
 				<th scope="col" class="text-center">Trạng thái</th>
 				<th scope="col">Kết luận</th>
 				<th scope="col">Thời điểm nhận</th>
@@ -34,6 +35,7 @@
 				<td th:text="${s.productName}"></td>
 				<td th:text="${s.batchNo}"></td>
 				<td th:text="${s.sampleType.label}"></td>
+				<td><span th:replace="~{fragments/layout :: priorityBadge(${s.priority})}"></span></td>
 				<td class="text-center">
 					<span th:replace="~{fragments/layout :: statusBadge(${s.status})}"></span>
 				</td>

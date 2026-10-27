@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.StatusHistory;
@@ -24,6 +25,9 @@ import com.pharmalab.labtrack.persistence.TestResultMapper;
 public class LabSampleService {
 
 	static final int DEFAULT_DUE_DAYS = 7;
+
+	/** BR-13. Trùng {@code DEFAULT} của cột {@code lab_sample.priority} (V6), giá trị mà mẫu có trước V6 nhận. */
+	static final SamplePriority DEFAULT_PRIORITY = SamplePriority.NORMAL;
 
 	static final int MIN_REASON_LENGTH = 5;
 
@@ -54,10 +58,10 @@ public class LabSampleService {
 		this.clock = clock;
 	}
 
-	/** Giá trị điền sẵn cho form đăng ký: nhận lúc này, hạn trả sau 7 ngày (BR-02). */
+	/** Giá trị điền sẵn cho form đăng ký: ưu tiên Bình thường, nhận lúc này, hạn trả sau 7 ngày (BR-02, BR-13). */
 	public NewSample newSampleDefaults() {
 		LocalDateTime now = now();
-		return new NewSample(null, null, null, now, now.toLocalDate().plusDays(DEFAULT_DUE_DAYS));
+		return new NewSample(null, null, null, DEFAULT_PRIORITY, now, now.toLocalDate().plusDays(DEFAULT_DUE_DAYS));
 	}
 
 	/**
@@ -86,6 +90,7 @@ public class LabSampleService {
 		sample.setProductName(newSample.productName());
 		sample.setBatchNo(newSample.batchNo());
 		sample.setSampleType(newSample.sampleType());
+		sample.setPriority(newSample.priority() != null ? newSample.priority() : DEFAULT_PRIORITY);
 		sample.setStatus(SampleStatus.RECEIVED);
 		sample.setReceivedAt(receivedAt);
 		sample.setDueDate(dueDate);

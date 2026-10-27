@@ -40,6 +40,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import com.pharmalab.labtrack.config.SecurityConfig;
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.TestResult;
@@ -88,6 +89,7 @@ class AccessControlTests {
 		sample.setProductName("Paracetamol 500 mg");
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
+		sample.setPriority(SamplePriority.NORMAL);
 		sample.setStatus(SampleStatus.RECEIVED);
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse("2026-10-14"));

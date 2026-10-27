@@ -21,9 +21,12 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusChange;
@@ -152,6 +155,26 @@ class LabSampleServiceTests {
 		assertThat(saved.getBatchNo()).isEqualTo("PA-2601");
 		assertThat(saved.getSampleType()).isEqualTo(SampleType.FINISHED_PRODUCT);
 		verify(codeGenerator).nextCode(OffsetDateTime.parse("2026-10-09T09:30+07:00"));
+	}
+
+	@Test
+	@DisplayName("TC-BR13-04 Form mới chọn sẵn Bình thường; đăng ký không chọn mức ưu tiên thì lưu Bình thường")
+	void priorityDefaultsToNormal() {
+		LabSampleService service = serviceAt(MORNING);
+
+		assertThat(service.newSampleDefaults().priority()).isEqualTo(SamplePriority.NORMAL);
+		service.register(newSample(null, null), "demo");
+		assertThat(savedSample().getPriority()).isEqualTo(SamplePriority.NORMAL);
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}")
+	@EnumSource(SamplePriority.class)
+	@DisplayName("TC-BR13-05 Mức ưu tiên đã chọn được lưu nguyên")
+	void savesChosenPriority(SamplePriority priority) {
+		serviceAt(MORNING).register(new NewSample("Paracetamol 500 mg", "PA-2601", SampleType.FINISHED_PRODUCT,
+				priority, null, null), "demo");
+
+		assertThat(savedSample().getPriority()).isEqualTo(priority);
 	}
 
 	@Test

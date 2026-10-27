@@ -16,6 +16,8 @@ public class LabSample {
 
 	private SampleType sampleType;
 
+	private SamplePriority priority;
+
 	private SampleStatus status;
 
 	private OffsetDateTime receivedAt;
@@ -71,6 +73,14 @@ public class LabSample {
 
 	public void setSampleType(SampleType sampleType) {
 		this.sampleType = sampleType;
+	}
+
+	public SamplePriority getPriority() {
+		return priority;
+	}
+
+	public void setPriority(SamplePriority priority) {
+		this.priority = priority;
 	}
 
 	public SampleStatus getStatus() {

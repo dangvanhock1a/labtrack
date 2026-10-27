@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -44,12 +45,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.pharmalab.labtrack.config.SecurityConfig;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.ResultAction;
 import com.pharmalab.labtrack.domain.ResultAudit;
 import com.pharmalab.labtrack.domain.ResultStatus;
+import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusHistory;
@@ -62,6 +65,7 @@ import com.pharmalab.labtrack.service.BusinessException;
 import com.pharmalab.labtrack.service.InvalidStatusTransitionException;
 import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.NewResult;
+import com.pharmalab.labtrack.service.NewSample;
 import com.pharmalab.labtrack.service.ResultSheetRow;
 import com.pharmalab.labtrack.service.TestResultService;
 
@@ -95,6 +99,7 @@ class SampleControllerTests {
 		sample.setProductName("Paracetamol 500 mg");
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
+		sample.setPriority(SamplePriority.NORMAL);
 		sample.setStatus(status);
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse("2026-10-14"));
@@ -173,6 +178,85 @@ class SampleControllerTests {
 			.andExpect(content().string(containsString("07/10/2026 09:00")))
 			.andExpect(content().string(containsString("14/10/2026")))
 			.andExpect(content().string(not(containsString("07/10/2026 02:00"))));
+	}
+
+	private static MockHttpServletRequestBuilder registration(String priority) {
+		return post("/samples").with(csrf())
+			.param("productName", "Paracetamol 500 mg")
+			.param("batchNo", "PA-2601")
+			.param("sampleType", "FINISHED_PRODUCT")
+			.param("priority", priority);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR13-06 Form đăng ký có select Mức ưu tiên đủ Thấp, Bình thường, Khẩn; Bình thường được chọn sẵn")
+	void registrationFormPreselectsNormalPriority() throws Exception {
+		when(sampleService.newSampleDefaults()).thenReturn(new NewSample(null, null, null, SamplePriority.NORMAL,
+				LocalDateTime.parse("2026-10-09T10:00"), LocalDate.parse("2026-10-16")));
+
+		String html = mockMvc.perform(get("/samples/new"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(html).contains("<label for=\"priority\" class=\"form-label\">Mức ưu tiên</label>")
+			.contains(">Thấp</option>")
+			.contains(">Bình thường</option>")
+			.contains(">Khẩn</option>");
+		assertThat(tagContaining(html, "value=\"NORMAL\"")).contains("selected");
+		assertThat(tagContaining(html, "value=\"LOW\"")).doesNotContain("selected");
+		assertThat(tagContaining(html, "value=\"URGENT\"")).doesNotContain("selected");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR13-07 Gửi form đăng ký chọn Khẩn: tầng nghiệp vụ nhận đúng mức ưu tiên Khẩn")
+	void registrationPassesChosenPriorityToService() throws Exception {
+		when(sampleService.register(any(), eq("tiepnhan"))).thenReturn(sampleIn(SampleStatus.RECEIVED));
+
+		mockMvc.perform(registration("URGENT"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"));
+
+		ArgumentCaptor<NewSample> sent = ArgumentCaptor.forClass(NewSample.class);
+		verify(sampleService).register(sent.capture(), eq("tiepnhan"));
+		assertThat(sent.getValue().priority()).isEqualTo(SamplePriority.URGENT);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR13-08 Request gửi mức ưu tiên lạ (HIGH): hiện lại form với lỗi \"Vui lòng chọn mức ưu tiên\", không gọi service")
+	void unknownPriorityIsRejectedByForm() throws Exception {
+		mockMvc.perform(registration("HIGH"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "priority"))
+			.andExpect(content().string(containsString("Vui lòng chọn mức ưu tiên")));
+
+		verifyNoInteractions(sampleService);
+	}
+
+	@Test
+	@DisplayName("TC-BR13-09 Danh sách có cột Ưu tiên và trang chi tiết có dòng Mức ưu tiên; Khẩn là nhãn vàng")
+	void listAndDetailShowPriorityBadge() throws Exception {
+		LabSample sample = sampleIn(SampleStatus.RECEIVED);
+		sample.setPriority(SamplePriority.URGENT);
+		when(sampleService.findAll()).thenReturn(List.of(sample));
+		when(sampleService.findById(SAMPLE_ID)).thenReturn(Optional.of(sample));
+
+		String list = mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		assertThat(list).contains("<th scope=\"col\">Ưu tiên</th>");
+		assertThat(tagContaining(list, ">Khẩn<")).contains("badge").contains("text-bg-warning");
+
+		String detail = detailPage();
+		assertThat(detail).contains("<dt class=\"col-sm-5\">Mức ưu tiên</dt>");
+		assertThat(tagContaining(detail, ">Khẩn<")).contains("badge").contains("text-bg-warning");
 	}
 
 	@Test
