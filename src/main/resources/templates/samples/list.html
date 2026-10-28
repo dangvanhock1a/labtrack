@@ -14,32 +14,41 @@
 
 	<!-- BR-13: form gửi bằng GET nên bộ lọc nằm trên URL. Form không gửi số trang, nên lọc lại thì về trang 1. -->
 	<form class="row g-2 align-items-end mb-3" method="get" th:action="@{/samples}" th:object="${filter}">
-		<div class="col-12 col-lg-4">
+		<div class="col-12 col-lg">
 			<label for="q" class="form-label">Từ khóa</label>
 			<input type="search" th:field="*{q}" class="form-control" placeholder="Mã mẫu, sản phẩm hoặc số lô">
 		</div>
-		<div class="col-6 col-md-4 col-lg-2">
+		<div class="col-6 col-md-3 col-lg-2">
 			<label for="status" class="form-label">Trạng thái</label>
 			<select th:field="*{status}" class="form-select">
 				<option value="">Tất cả</option>
 				<option th:each="st : ${statuses}" th:value="${st}" th:text="${st.label}"></option>
 			</select>
 		</div>
-		<div class="col-6 col-md-4 col-lg-2">
+		<div class="col-6 col-md-3 col-lg-2">
 			<label for="priority" class="form-label">Ưu tiên</label>
 			<select th:field="*{priority}" class="form-select">
 				<option value="">Tất cả</option>
 				<option th:each="pr : ${priorities}" th:value="${pr}" th:text="${pr.label}"></option>
 			</select>
 		</div>
-		<div class="col-12 col-md-4 col-lg-2">
+		<div class="col-6 col-md-3 col-lg-2">
 			<label for="sampleType" class="form-label">Loại mẫu</label>
 			<select th:field="*{sampleType}" class="form-select">
 				<option value="">Tất cả</option>
 				<option th:each="t : ${sampleTypes}" th:value="${t}" th:text="${t.label}"></option>
 			</select>
 		</div>
-		<div class="col-12 col-lg-2 d-flex gap-2">
+		<!-- BR-14: không dùng th:field, vì với checkbox nó sinh thêm ô ẩn _overdueOnly và URL nào cũng mang tham số đó.
+			 Bỏ chọn thì trình duyệt không gửi gì, SampleFilterForm.overdueOnly giữ mặc định false. -->
+		<div class="col-6 col-md-3 col-lg-auto">
+			<div class="form-check mb-2">
+				<input class="form-check-input" type="checkbox" id="overdueOnly" name="overdueOnly" value="true"
+					   th:checked="*{overdueOnly}">
+				<label class="form-check-label text-nowrap" for="overdueOnly">Quá hạn</label>
+			</div>
+		</div>
+		<div class="col-12 col-lg-auto d-flex gap-2">
 			<button type="submit" class="btn btn-primary">Lọc</button>
 			<a class="btn btn-outline-secondary text-nowrap" th:href="@{/samples}">Xóa bộ lọc</a>
 		</div>
@@ -65,6 +74,7 @@
 					<th scope="col" class="text-center">Đã duyệt</th>
 					<th scope="col">Kết luận</th>
 					<th scope="col">Thời điểm nhận</th>
+					<!-- BR-14: nhãn đỏ nằm trong ô Hạn trả, cạnh ngày đã qua. -->
 					<th scope="col">Hạn trả</th>
 				</tr>
 				</thead>
@@ -87,7 +97,12 @@
 						</th:block>
 					</td>
 					<td th:text="${@fmt.dateTime(s.receivedAt)}"></td>
-					<td th:text="${@fmt.date(s.dueDate)}"></td>
+					<td>
+						<span class="text-nowrap" th:text="${@fmt.date(s.dueDate)}">14/10/2026</span>
+						<th:block th:if="${s.overdue}">
+							<span th:replace="~{fragments/layout :: overdueBadge}"></span>
+						</th:block>
+					</td>
 				</tr>
 				</tbody>
 			</table>

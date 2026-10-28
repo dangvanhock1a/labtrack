@@ -48,6 +48,12 @@
 			<if test="filter.status != null">AND status = #{filter.status}</if>
 			<if test="filter.priority != null">AND priority = #{filter.priority}</if>
 			<if test="filter.sampleType != null">AND sample_type = #{filter.sampleType}</if>
+			<!--
+				BR-14: cùng điều kiện với LabSample.isOverdue. Hai hằng là trạng thái kết thúc của SampleStatus.isTerminal.
+				today do LabSampleService lấy từ Clock (ngày giờ VN); CURRENT_DATE theo múi giờ phiên CSDL, lúc 00:30 giờ VN
+				phiên UTC vẫn là hôm trước.
+			-->
+			<if test="filter.overdueOnly">AND status NOT IN ('COMPLETED', 'CANCELLED') AND due_date &lt; #{today}</if>
 		</where>
 	</sql>
 

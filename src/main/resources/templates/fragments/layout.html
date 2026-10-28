@@ -67,6 +67,10 @@
 	  th:classappend="${verdict.name() == 'PASS'} ? 'text-bg-success' : 'text-bg-danger'"
 	  th:text="${verdict.label}">Đạt</span>
 
+<!-- Nhãn quá hạn (BR-14), dùng chung cho danh sách và chi tiết. Template không tự so ngày: chỉ hiện khi cờ
+	 LabSample.overdue bật, cờ do LabSampleService tính theo ngày của Clock. -->
+<span th:fragment="overdueBadge" class="badge text-bg-danger" data-testid="overdue-badge">Quá hạn</span>
+
 <th:block th:fragment="scripts">
 	<script th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>
 </th:block>

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -35,6 +36,9 @@ class LabSampleSearchTests {
 	private static final Clock AFTER_MIDNIGHT = Clock.fixed(Instant.parse("2026-10-09T17:30:00Z"),
 			ZoneId.of("Asia/Ho_Chi_Minh"));
 
+	/** Ngày VN của {@link #AFTER_MIDNIGHT}; ngày UTC cùng lúc là 2026-10-09. */
+	private static final LocalDate TODAY = LocalDate.parse("2026-10-10");
+
 	private static final int PAGE_SIZE = 20;
 
 	private final LabSampleMapper sampleMapper = mock(LabSampleMapper.class);
@@ -60,13 +64,49 @@ class LabSampleSearchTests {
 	void searchRunsCountThenPageWithSamePattern() {
 		SampleFilter filter = new SampleFilter(" 50% ", SampleStatus.RECEIVED, SamplePriority.URGENT,
 				SampleType.RAW_MATERIAL);
-		when(sampleMapper.countSearch(filter, "%50\\%%")).thenReturn(1L);
+		when(sampleMapper.countSearch(filter, "%50\\%%", TODAY)).thenReturn(1L);
 
 		service.search(filter, 1);
 
-		verify(sampleMapper).countSearch(filter, "%50\\%%");
-		verify(sampleMapper).search(filter, "%50\\%%", PAGE_SIZE, 0);
+		verify(sampleMapper).countSearch(filter, "%50\\%%", TODAY);
+		verify(sampleMapper).search(filter, "%50\\%%", TODAY, PAGE_SIZE, 0);
 		verifyNoMoreInteractions(sampleMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR14-06 Service truyền \"hôm nay\" theo giờ VN (2026-10-10, không phải ngày UTC 2026-10-09) cho cả đếm và lấy trang, kể cả khi bật overdueOnly")
+	void searchPassesTodayInClockZoneToMapper() {
+		SampleFilter overdue = new SampleFilter(null, null, null, null, true);
+		when(sampleMapper.countSearch(overdue, null, LocalDate.parse("2026-10-10"))).thenReturn(1L);
+
+		service.search(overdue, 1);
+
+		verify(sampleMapper).countSearch(overdue, null, LocalDate.parse("2026-10-10"));
+		verify(sampleMapper).search(overdue, null, LocalDate.parse("2026-10-10"), PAGE_SIZE, 0);
+		verifyNoMoreInteractions(sampleMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR14-07 Mẫu trong trang được đánh dấu quá hạn theo ngày VN lúc 00:30: hạn 09/10 quá hạn, hạn 10/10 thì chưa, mẫu Hoàn thành hạn 09/10 thì không")
+	void searchMarksOverdueByVietnamDate() {
+		LabSample yesterday = overdueCandidate(SampleStatus.RECEIVED, "2026-10-09");
+		LabSample today = overdueCandidate(SampleStatus.IN_TESTING, "2026-10-10");
+		LabSample finished = overdueCandidate(SampleStatus.COMPLETED, "2026-10-09");
+		when(sampleMapper.countSearch(SampleFilter.NONE, null, TODAY)).thenReturn(3L);
+		when(sampleMapper.search(SampleFilter.NONE, null, TODAY, PAGE_SIZE, 0))
+			.thenReturn(List.of(yesterday, today, finished));
+
+		List<LabSample> samples = service.search(SampleFilter.NONE, 1).samples();
+
+		assertThat(samples).extracting(LabSample::isOverdue).containsExactly(true, false, false);
+	}
+
+	private static LabSample overdueCandidate(SampleStatus status, String dueDate) {
+		LabSample sample = new LabSample();
+		sample.setStatus(status);
+		sample.setDueDate(LocalDate.parse(dueDate));
+		sample.setReceivedAt(OffsetDateTime.parse("2026-10-01T09:00+07:00"));
+		return sample;
 	}
 
 	@ParameterizedTest(name = "[{index}] N = {0}, xin trang {1} → trang {2}/{6}, OFFSET {3}, hiển thị {4}–{5}")
@@ -84,11 +124,11 @@ class LabSampleSearchTests {
 			 0,   7,  1,  0,  0,  0, 1
 			""")
 	void pageIsClampedToExistingPage(long total, int requested, int page, int offset, long from, long to, int pages) {
-		when(sampleMapper.countSearch(SampleFilter.NONE, null)).thenReturn(total);
+		when(sampleMapper.countSearch(SampleFilter.NONE, null, TODAY)).thenReturn(total);
 
 		SamplePage result = service.search(SampleFilter.NONE, requested);
 
-		verify(sampleMapper).search(SampleFilter.NONE, null, PAGE_SIZE, offset);
+		verify(sampleMapper).search(SampleFilter.NONE, null, TODAY, PAGE_SIZE, offset);
 		assertThat(result.page()).isEqualTo(page);
 		assertThat(result.total()).isEqualTo(total);
 		assertThat(result.from()).isEqualTo(from);
@@ -103,8 +143,8 @@ class LabSampleSearchTests {
 	void samplesAreReturnedInClockZone() {
 		LabSample sample = new LabSample();
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-09T17:30Z"));
-		when(sampleMapper.countSearch(SampleFilter.NONE, null)).thenReturn(1L);
-		when(sampleMapper.search(SampleFilter.NONE, null, PAGE_SIZE, 0)).thenReturn(List.of(sample));
+		when(sampleMapper.countSearch(SampleFilter.NONE, null, TODAY)).thenReturn(1L);
+		when(sampleMapper.search(SampleFilter.NONE, null, TODAY, PAGE_SIZE, 0)).thenReturn(List.of(sample));
 
 		SamplePage result = service.search(SampleFilter.NONE, 1);
 

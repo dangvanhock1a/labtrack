@@ -26,10 +26,13 @@ public class SampleFilterForm {
 
 	private SampleType sampleType;
 
+	/** BR-14. Không có tham số (ô bỏ chọn không được gửi) hay giá trị không đọc được thì là {@code false}. */
+	private boolean overdueOnly;
+
 	private Integer page;
 
 	SampleFilter toFilter() {
-		return new SampleFilter(q, status, priority, sampleType);
+		return new SampleFilter(q, status, priority, sampleType, overdueOnly);
 	}
 
 	int pageOrFirst() {
@@ -38,7 +41,7 @@ public class SampleFilterForm {
 
 	/** Có lọc gì không: danh sách rỗng thì báo "Chưa có mẫu nào." hay "Không có mẫu nào khớp bộ lọc.". */
 	public boolean isActive() {
-		return q != null || status != null || priority != null || sampleType != null;
+		return q != null || status != null || priority != null || sampleType != null || overdueOnly;
 	}
 
 	/**
@@ -58,6 +61,9 @@ public class SampleFilterForm {
 		}
 		if (sampleType != null) {
 			url.queryParam("sampleType", sampleType.name());
+		}
+		if (overdueOnly) {
+			url.queryParam("overdueOnly", true);
 		}
 		return url.queryParam("page", page).build(true).toUriString();
 	}
@@ -92,6 +98,14 @@ public class SampleFilterForm {
 
 	public void setSampleType(SampleType sampleType) {
 		this.sampleType = sampleType;
+	}
+
+	public boolean isOverdueOnly() {
+		return overdueOnly;
+	}
+
+	public void setOverdueOnly(boolean overdueOnly) {
+		this.overdueOnly = overdueOnly;
 	}
 
 	public Integer getPage() {

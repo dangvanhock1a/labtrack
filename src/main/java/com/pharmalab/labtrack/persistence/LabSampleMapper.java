@@ -1,5 +1,6 @@
 package com.pharmalab.labtrack.persistence;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,16 +29,19 @@ public interface LabSampleMapper {
 
 	/**
 	 * Số mẫu khớp bộ lọc (BR-13). {@code keyword} là mẫu LIKE đã escape, hoặc {@code null} khi không tìm theo từ khóa;
-	 * {@code filter.keyword()} không được đọc ở đây.
+	 * {@code filter.keyword()} không được đọc ở đây. {@code today} là ngày hôm nay theo {@code Clock}, dùng khi
+	 * {@code filter.overdueOnly()} (BR-14): SQL không tự lấy {@code CURRENT_DATE}, vì nó theo múi giờ phiên CSDL chứ
+	 * không theo giờ Việt Nam.
 	 */
-	long countSearch(@Param("filter") SampleFilter filter, @Param("keyword") String keyword);
+	long countSearch(@Param("filter") SampleFilter filter, @Param("keyword") String keyword,
+			@Param("today") LocalDate today);
 
 	/**
 	 * Một trang mẫu khớp bộ lọc, cùng điều kiện với {@link #countSearch}: Khẩn trước rồi nhận mới nhất trước (BR-13),
 	 * mỗi mẫu kèm {@code approvedCount} và {@code effectiveCount}.
 	 */
 	List<LabSample> search(@Param("filter") SampleFilter filter, @Param("keyword") String keyword,
-			@Param("limit") int limit, @Param("offset") int offset);
+			@Param("today") LocalDate today, @Param("limit") int limit, @Param("offset") int offset);
 
 	/**
 	 * Đổi trạng thái nếu mẫu vẫn còn ở {@code change.fromStatus()} (BR-03). Trả về số dòng được
