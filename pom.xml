@@ -131,6 +131,15 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<!-- JVM test chạy UTC (ma trận TZ ở docs/cau-hoi-lam-ro.md): máy dev ở múi +07:00 trùng giờ VN, nên code lỡ
+				 dùng múi của JVM hay của phiên CSDL thay cho Clock vẫn qua test nếu không ép. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-Duser.timezone=UTC</argLine>
+				</configuration>
+			</plugin>
 			<!-- Test E2E (*IT.java) chạy ở ./mvnw verify, không chạy ở ./mvnw test. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
