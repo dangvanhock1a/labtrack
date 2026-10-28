@@ -26,6 +26,7 @@ import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 
@@ -58,28 +59,34 @@ class OverdueSearchIntegrationTests {
 	@Autowired
 	private LabSampleService sampleService;
 
-	/** Mẫu có từ khóa BR14S, nhận 01/03/2000 (qua {@code ck_lab_sample_due_date}); {@code code} cũng là mã ghi vào CSDL. */
+	/**
+	 * Mẫu có từ khóa BR14S, nhận 01/03/2000 (qua {@code ck_lab_sample_due_date}); {@code code} cũng là mã ghi vào CSDL.
+	 * Mẫu Hoàn thành được ghi ở Đang kiểm nghiệm rồi kết luận bằng {@code conclude}, như luồng thật: {@code insert}
+	 * không ghi kết luận, mà {@code ck_lab_sample_completed} (V5) không cho mẫu Hoàn thành thiếu kết luận.
+	 */
 	private void insert(String code, SampleStatus status, String dueDate, Consumer<LabSample> customizer) {
+		boolean completed = status == SampleStatus.COMPLETED;
 		LabSample sample = new LabSample();
 		sample.setCode(code);
 		sample.setProductName("Mẫu quá hạn " + KEYWORD);
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
 		sample.setPriority(SamplePriority.NORMAL);
-		sample.setStatus(status);
+		sample.setStatus(completed ? SampleStatus.IN_TESTING : status);
 		sample.setReceivedAt(OffsetDateTime.parse("2000-03-01T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse(dueDate));
 		sample.setCreatedBy("tiepnhan");
 		customizer.accept(sample);
 		sampleMapper.insert(sample);
+		if (completed) {
+			StatusChange change = new StatusChange(sample.getId(), SampleStatus.IN_TESTING, SampleStatus.COMPLETED,
+					"Kết luận: Đạt", "duyet", OffsetDateTime.parse("2000-03-05T09:00+07:00"));
+			assertThat(sampleMapper.conclude(change, Verdict.PASS)).isEqualTo(1);
+		}
 	}
 
 	private void insert(String code, SampleStatus status, String dueDate) {
 		insert(code, status, dueDate, sample -> {
-			if (status == SampleStatus.COMPLETED) {
-				sample.setConclusion(Verdict.PASS);
-				sample.setCompletedAt(OffsetDateTime.parse("2000-03-05T09:00+07:00"));
-			}
 		});
 	}
 
