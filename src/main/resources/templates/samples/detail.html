@@ -19,6 +19,9 @@
 			<!-- Chữ "Mẫu " ẩn giữ tên tiêu đề "Mẫu LS-…" cho trình đọc màn hình; E2E tìm trang theo tên đó. -->
 			<h1 class="h3 mb-0"><span class="visually-hidden">Mẫu </span><span th:text="${sample.code}">LS-2026-00001</span></h1>
 			<span data-testid="status-badge"><span th:replace="~{fragments/layout :: statusBadge(${sample.status})}"></span></span>
+			<th:block th:if="${sample.overdue}">
+				<span th:replace="~{fragments/layout :: overdueBadge}"></span>
+			</th:block>
 			<!-- BR-11: chỉ mẫu Hoàn thành có kết luận (ck_lab_sample_completed, V5). th:if nằm ở th:block vì thẻ bên
 				 trong dùng th:replace. -->
 			<th:block th:if="${sample.conclusion != null}">

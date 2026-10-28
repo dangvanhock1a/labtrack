@@ -43,6 +43,23 @@ public class LabSample {
 
 	private Integer effectiveCount;
 
+	/**
+	 * BR-14: cờ quá hạn cho template, vì template không có {@link java.time.Clock} để tự tính "hôm nay". Không phải
+	 * cột: {@code LabSampleService} gán bằng {@link #isOverdue(LocalDate)} lúc đọc mẫu để hiển thị, đường đọc khác để
+	 * {@code false}.
+	 */
+	private boolean overdue;
+
+	/**
+	 * BR-14: quá hạn khi chưa kết thúc và hạn trả trước {@code today}; hạn trả đúng hôm nay thì chưa. {@code today} do
+	 * người gọi truyền vào (ngày theo {@link java.time.Clock}) chứ không tự lấy, để ngày theo giờ VN và không phụ thuộc
+	 * múi giờ JVM. Cùng điều kiện với lọc {@code overdueOnly} trong {@code LabSampleMapper.xml}. Đối tượng chưa có trạng
+	 * thái hay hạn trả (dựng tay, chưa đọc đủ cột) thì không tính là quá hạn.
+	 */
+	public boolean isOverdue(LocalDate today) {
+		return status != null && !status.isTerminal() && dueDate != null && dueDate.isBefore(today);
+	}
+
 	public Long getId() {
 		return id;
 	}
@@ -169,6 +186,14 @@ public class LabSample {
 
 	public void setEffectiveCount(Integer effectiveCount) {
 		this.effectiveCount = effectiveCount;
+	}
+
+	public boolean isOverdue() {
+		return overdue;
+	}
+
+	public void setOverdue(boolean overdue) {
+		this.overdue = overdue;
 	}
 
 }

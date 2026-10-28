@@ -111,14 +111,16 @@ public class LabSampleService {
 	/**
 	 * Một trang danh sách mẫu theo bộ lọc (BR-13). Đếm trước rồi mới lấy trang, để số trang ngoài khoảng (gõ tay trên
 	 * URL, hay trang cuối vừa hết mẫu) được kéo về trang có thật gần nhất thay vì hiện trang trống. Đúng hai câu SQL
-	 * cho một trang (NFR-01): tiến độ đếm ngay trong câu lấy trang.
+	 * cho một trang (NFR-01): tiến độ đếm ngay trong câu lấy trang. "Hôm nay" của lọc quá hạn và của cờ quá hạn từng
+	 * mẫu (BR-14) là cùng một ngày theo {@link Clock}, nên mẫu lọt bộ lọc luôn mang nhãn Quá hạn.
 	 */
 	public SamplePage search(SampleFilter filter, int page) {
 		String keyword = likePattern(filter.keyword());
-		long total = sampleMapper.countSearch(filter, keyword);
+		LocalDate today = LocalDate.now(clock);
+		long total = sampleMapper.countSearch(filter, keyword, today);
 		int current = Math.clamp(page, 1, SamplePage.pageCount(total, pageSize));
-		List<LabSample> samples = sampleMapper.search(filter, keyword, pageSize, (current - 1) * pageSize);
-		samples.forEach(this::toClockZone);
+		List<LabSample> samples = sampleMapper.search(filter, keyword, today, pageSize, (current - 1) * pageSize);
+		samples.forEach(sample -> markOverdue(toClockZone(sample), today));
 		return new SamplePage(samples, current, pageSize, total);
 	}
 
@@ -134,8 +136,10 @@ public class LabSampleService {
 		return "%" + keyword.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
 	}
 
+	/** Mẫu cho trang chi tiết, kèm cờ quá hạn theo ngày hôm nay của {@link Clock} (BR-14). */
 	public Optional<LabSample> findById(long id) {
-		return sampleMapper.findById(id).map(this::toClockZone);
+		LocalDate today = LocalDate.now(clock);
+		return sampleMapper.findById(id).map(sample -> markOverdue(toClockZone(sample), today));
 	}
 
 	/** Lịch sử đổi trạng thái của một mẫu, cũ trước mới sau (BR-04). */
@@ -245,6 +249,12 @@ public class LabSampleService {
 		sample.setCreatedAt(inClockZone(sample.getCreatedAt()));
 		sample.setUpdatedAt(inClockZone(sample.getUpdatedAt()));
 		sample.setCompletedAt(inClockZone(sample.getCompletedAt()));
+		return sample;
+	}
+
+	/** BR-14: gán cờ cho template, vì template không có {@link Clock}; điều kiện nằm ở {@link LabSample#isOverdue}. */
+	private static LabSample markOverdue(LabSample sample, LocalDate today) {
+		sample.setOverdue(sample.isOverdue(today));
 		return sample;
 	}
 

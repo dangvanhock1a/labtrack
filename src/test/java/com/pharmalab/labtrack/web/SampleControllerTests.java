@@ -366,8 +366,59 @@ class SampleControllerTests {
 	}
 
 	@Test
+	@DisplayName("TC-BR14-13 Danh sách: mẫu quá hạn có nhãn \"Quá hạn\" (data-testid=\"overdue-badge\", nền đỏ), mẫu không quá hạn thì không có")
+	void listShowsOverdueBadgeOnlyOnOverdueSamples() throws Exception {
+		LabSample late = sampleIn(SampleStatus.RECEIVED);
+		late.setCode("LS-2026-00001");
+		late.setOverdue(true);
+		LabSample onTime = sampleIn(SampleStatus.RECEIVED);
+		onTime.setCode("LS-2026-00002");
+		onTime.setOverdue(false);
+		givenListing(late, onTime);
+
+		String html = mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		String tbody = html.substring(html.indexOf("<tbody>"));
+		String lateRow = tbody.substring(0, tbody.indexOf("LS-2026-00002"));
+		String onTimeRow = tbody.substring(tbody.indexOf("LS-2026-00002"));
+		assertThat(lateRow).contains("data-testid=\"overdue-badge\"");
+		assertThat(tagContaining(lateRow, "data-testid=\"overdue-badge\"")).contains("text-bg-danger").contains(">Quá hạn<");
+		assertThat(onTimeRow).doesNotContain("overdue-badge").doesNotContain("Quá hạn");
+	}
+
+	@Test
+	@DisplayName("TC-BR14-14 Danh sách không có mẫu quá hạn nào thì không có overdue-badge trong bảng")
+	void listWithoutOverdueSamplesHasNoBadge() throws Exception {
+		givenListing(sampleIn(SampleStatus.IN_TESTING));
+
+		String html = mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(html.substring(html.indexOf("<tbody>"))).doesNotContain("overdue-badge");
+	}
+
+	@Test
+	@DisplayName("TC-BR14-15 Bộ lọc overdueOnly=true trên URL xuống service; không có tham số thì không lọc quá hạn")
+	void overdueOnlyFilterReachesService() throws Exception {
+		givenListing();
+
+		mockMvc.perform(get("/samples").param("overdueOnly", "true")).andExpect(status().isOk());
+		verify(sampleService).search(new SampleFilter(null, null, null, null, true), 1);
+
+		mockMvc.perform(get("/samples")).andExpect(status().isOk());
+		verify(sampleService).search(new SampleFilter(null, null, null, null, false), 1);
+	}
+
+	@Test
 	@WithAppUser(username = "kiemnghiem1", role = ANALYST)
-	@DisplayName("TC-BR03-06 Chuyển trạng thái sai: quay lại trang chi tiết kèm thông báo lỗi dạng flash")
+	@DisplayName("TC-BR03-06Chuyển trạng thái sai: quay lại trang chi tiết kèm thông báo lỗi dạng flash")
 	void startTestingFailureRedirectsToDetailWithFlashError() throws Exception {
 		when(sampleService.startTesting(SAMPLE_ID, "kiemnghiem1"))
 			.thenThrow(new InvalidStatusTransitionException(SampleStatus.COMPLETED, SampleStatus.IN_TESTING));
