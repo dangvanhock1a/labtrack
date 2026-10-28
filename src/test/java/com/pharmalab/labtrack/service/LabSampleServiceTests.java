@@ -159,6 +159,71 @@ class LabSampleServiceTests {
 	}
 
 	@Test
+	@DisplayName("TC-BR02-14 Sau nửa đêm VN (UTC còn hôm trước): nhận 00:10 ngày 10/10, hạn 09/10 bị từ chối, không cấp mã")
+	void rejectsDueDateBeforeVietnamReceivedDateAfterMidnight() {
+		LabSampleService service = serviceAt(AFTER_MIDNIGHT);
+
+		assertThatThrownBy(() -> service.register(
+				newSample(LocalDateTime.parse("2026-10-10T00:10"), LocalDate.parse("2026-10-09")), "demo"))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getField()).isEqualTo("dueDate");
+				assertThat(ex).hasMessage("Hạn trả kết quả phải từ ngày nhận mẫu trở đi");
+			});
+		verifyNoInteractions(codeGenerator, sampleMapper, historyMapper);
+	}
+
+	@Test
+	@DisplayName("TC-BR02-15 Nhận lùi 05/10 08:00, để trống hạn trả: hạn là ngày nhận + 7 = 12/10, không phải hôm nay + 7")
+	void defaultDueDateCountsFromBackdatedReceivedDate() {
+		serviceAt(MORNING).register(newSample(LocalDateTime.parse("2026-10-05T08:00"), null), "demo");
+
+		assertThat(savedSample().getDueDate()).isEqualTo(LocalDate.parse("2026-10-12"));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-16 Sau nửa đêm VN: mặc định điền sẵn 10/10 00:30 và hạn 17/10; đăng ký để trống cả hai cũng lưu như vậy")
+	void defaultsUseVietnamDateAfterMidnight() {
+		LabSampleService service = serviceAt(AFTER_MIDNIGHT);
+
+		NewSample defaults = service.newSampleDefaults();
+		assertThat(defaults.receivedAt()).isEqualTo(LocalDateTime.parse("2026-10-10T00:30"));
+		assertThat(defaults.dueDate()).isEqualTo(LocalDate.parse("2026-10-17"));
+
+		service.register(newSample(null, null), "demo");
+		LabSample saved = savedSample();
+		assertThat(saved.getReceivedAt().toInstant()).isEqualTo(Instant.parse("2026-10-09T17:30:00Z"));
+		assertThat(saved.getDueDate()).isEqualTo(LocalDate.parse("2026-10-17"));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-17 Đồng hồ 10:00:45: thời điểm nhận mặc định cắt về 10:00, đăng ký để trống không bị coi là tương lai")
+	void defaultReceivedAtIsTruncatedToMinute() {
+		Clock withSeconds = Clock.fixed(Instant.parse("2026-10-09T03:00:45Z"), VN);
+		LabSampleService service = serviceAt(withSeconds);
+
+		assertThat(service.newSampleDefaults().receivedAt()).isEqualTo(LocalDateTime.parse("2026-10-09T10:00"));
+
+		service.register(newSample(null, null), "demo");
+		assertThat(savedSample().getReceivedAt()).isEqualTo(OffsetDateTime.parse("2026-10-09T10:00+07:00"));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-18 Sau nửa đêm VN: nhận 00:31 khi đồng hồ là 00:30 bị từ chối, 00:30 thì được")
+	void futureBoundaryAfterMidnight() {
+		LabSampleService service = serviceAt(AFTER_MIDNIGHT);
+
+		assertThatThrownBy(() -> service.register(newSample(LocalDateTime.parse("2026-10-10T00:31"), null), "demo"))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getField()).isEqualTo("receivedAt");
+				assertThat(ex).hasMessage("Thời điểm nhận mẫu không được ở tương lai");
+			});
+		verifyNoInteractions(codeGenerator, sampleMapper, historyMapper);
+
+		service.register(newSample(LocalDateTime.parse("2026-10-10T00:30"), null), "demo");
+		assertThat(savedSample().getReceivedAt().toInstant()).isEqualTo(Instant.parse("2026-10-09T17:30:00Z"));
+	}
+
+	@Test
 	@DisplayName("TC-BR13-04 Form mới chọn sẵn Bình thường; đăng ký không chọn mức ưu tiên thì lưu Bình thường")
 	void priorityDefaultsToNormal() {
 		LabSampleService service = serviceAt(MORNING);

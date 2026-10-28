@@ -16,6 +16,8 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -233,6 +235,15 @@ class LabSampleMapperTests {
 		assertThat(page.samples())
 			.extracting(LabSample::getCode, LabSample::getApprovedCount, LabSample::getEffectiveCount)
 			.containsExactly(tuple("LS-2000-00041", 1, 2), tuple("LS-2000-00042", 0, 0));
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}")
+	@EnumSource(SampleType.class)
+	@DisplayName("TC-BR02-32 Ghi qua mapper rồi đọc lại: cả 4 loại mẫu được lưu và đọc nguyên vẹn")
+	void writesAndReadsEverySampleType(SampleType type) {
+		LabSample saved = insertSample("LS-2000-0009" + type.ordinal(), sample -> sample.setSampleType(type));
+
+		assertThat(sampleMapper.findById(saved.getId()).orElseThrow().getSampleType()).isEqualTo(type);
 	}
 
 }

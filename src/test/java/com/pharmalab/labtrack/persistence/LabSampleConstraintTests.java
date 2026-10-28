@@ -63,6 +63,98 @@ class LabSampleConstraintTests {
 		assertRejected(sql, args).hasMessageContaining(constraint);
 	}
 
+	private int codeSeq = 0;
+
+	private static final String INSERT_SAMPLE = """
+			INSERT INTO lab_sample (code, product_name, batch_no, sample_type, received_at, due_date, created_by)
+			VALUES (?, ?, ?, ?, ?::timestamptz, ?::date, 'tiepnhan')""";
+
+	/** Mã LS-2001-9nnnn duy nhất trong test; mỗi câu INSERT thành công cần một mã khác. */
+	private String nextCode() {
+		return "LS-2001-9%04d".formatted(++codeSeq);
+	}
+
+	private Object[] row(String productName, String batchNo, String sampleType, String receivedAt, String dueDate) {
+		return new Object[] { nextCode(), productName, batchNo, sampleType, receivedAt, dueDate };
+	}
+
+	private Object[] validRow() {
+		return row("Paracetamol 500 mg", "PA-2601", "FINISHED_PRODUCT", "2026-10-09T10:00+07:00", "2026-10-16");
+	}
+
+	private Object[] withValue(int index, Object value) {
+		Object[] row = validRow();
+		row[index] = value;
+		return row;
+	}
+
+	private void assertSqlState(String sqlState, Object[] row) {
+		assertRejected(INSERT_SAMPLE, row).rootCause()
+			.isInstanceOfSatisfying(SQLException.class, e -> assertThat(e.getSQLState()).isEqualTo(sqlState));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-25 Ghi thẳng: hạn trả trước ngày nhận theo giờ VN bị ck_lab_sample_due_date chặn, kể cả lúc 00:10 VN khi UTC còn hôm trước")
+	void dueDateIsComparedWithVietnamReceivedDate() {
+		// 2026-10-09T17:10Z = 00:10 ngày 10/10 giờ VN.
+		String receivedAt = "2026-10-09T17:10:00Z";
+		assertViolates("ck_lab_sample_due_date", INSERT_SAMPLE,
+				row("Paracetamol", "PA-2601", "FINISHED_PRODUCT", receivedAt, "2026-10-09"));
+
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE,
+				row("Paracetamol", "PA-2601", "FINISHED_PRODUCT", receivedAt, "2026-10-10")))
+			.isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("TC-BR02-26 Ghi thẳng: số lô có khoảng trắng, chữ có dấu, _ hoặc rỗng bị ck_lab_sample_batch chặn; A-1/2 ghi được")
+	void batchNoIsConstrained() {
+		for (String bad : new String[] { "PA 2601", "LÔ-01", "PA_01", "" }) {
+			assertViolates("ck_lab_sample_batch", INSERT_SAMPLE, withValue(2, bad));
+		}
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE, withValue(2, "A-1/2"))).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("TC-BR02-27 Ghi thẳng: tên sản phẩm rỗng hoặc chỉ khoảng trắng bị ck_lab_sample_product chặn")
+	void productNameMustNotBeBlank() {
+		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, ""));
+		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, "   "));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-28 Ghi thẳng: tên sản phẩm chỉ gồm tab hoặc xuống dòng phải bị ck_lab_sample_product chặn (btrim một tham số chỉ cắt dấu cách)")
+	void productNameOfOnlyWhitespaceControlCharsIsRejected() {
+		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, "\t"));
+		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, "\n"));
+		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, " \t\r\n "));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-29 Ghi thẳng: loại mẫu ngoài 4 hằng (TABLET, raw_material) bị ck_lab_sample_type chặn")
+	void sampleTypeIsConstrained() {
+		assertViolates("ck_lab_sample_type", INSERT_SAMPLE, withValue(3, "TABLET"));
+		assertViolates("ck_lab_sample_type", INSERT_SAMPLE, withValue(3, "raw_material"));
+	}
+
+	@Test
+	@DisplayName("TC-BR02-30 Ghi thẳng: NULL ở tên sản phẩm, số lô, loại mẫu, thời điểm nhận, hạn trả bị chặn (SQLSTATE 23502)")
+	void requiredColumnsRejectNull() {
+		for (int index = 1; index <= 5; index++) {
+			assertSqlState("23502", withValue(index, null));
+		}
+	}
+
+	@Test
+	@DisplayName("TC-BR02-31 Ghi thẳng: tên 201 ký tự và số lô 51 ký tự bị chặn (SQLSTATE 22001); 200 và 50 ký tự ghi được")
+	void columnLengthsAreLimited() {
+		assertSqlState("22001", withValue(1, "Đ".repeat(201)));
+		assertSqlState("22001", withValue(2, "A".repeat(51)));
+
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE, withValue(1, "Đ".repeat(200)))).isEqualTo(1);
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE, withValue(2, "A".repeat(50)))).isEqualTo(1);
+	}
+
 	@Test
 	@DisplayName("TC-BR11-08 Ghi thẳng: Hoàn thành thiếu kết luận hay thời điểm hoàn thành, hoặc có kết luận mà chưa Hoàn thành, bị ck_lab_sample_completed chặn; kết luận ngoài PASS/FAIL bị ck_lab_sample_conclusion chặn")
 	void conclusionColumnsFollowCompletedStatus() {

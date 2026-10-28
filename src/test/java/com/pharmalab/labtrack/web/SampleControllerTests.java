@@ -191,6 +191,132 @@ class SampleControllerTests {
 			.andExpect(content().string(not(containsString("07/10/2026 02:00"))));
 	}
 
+	/** Nội dung ô báo lỗi đứng ngay sau ô nhập có id {@code fieldId}, để câu chữ gắn đúng ô chứ không chỉ có đâu đó trên trang. */
+	private static String feedbackOf(String html, String fieldId) {
+		int field = html.indexOf("id=\"" + fieldId + "\"");
+		assertThat(field).as("ô nhập %s", fieldId).isNotNegative();
+		int feedback = html.indexOf("invalid-feedback", field);
+		int start = html.indexOf('>', feedback) + 1;
+		return html.substring(start, html.indexOf("</div>", start));
+	}
+
+	private static MockHttpServletRequestBuilder registrationOf(String productName, String batchNo, String type) {
+		return post("/samples").with(csrf())
+			.param("productName", productName)
+			.param("batchNo", batchNo)
+			.param("sampleType", type)
+			.param("priority", "NORMAL");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR02-33 Service ném lỗi receivedAt: hiện lại form (200), câu BR-02 ở ô Thời điểm nhận, dữ liệu đã nhập được giữ")
+	void receivedAtBusinessErrorIsShownOnItsField() throws Exception {
+		when(sampleService.register(any(), eq("tiepnhan")))
+			.thenThrow(new BusinessException("receivedAt", "Thời điểm nhận mẫu không được ở tương lai"));
+
+		String html = mockMvc.perform(registrationOf("Paracetamol 500 mg", "PA-2601", "FINISHED_PRODUCT")
+				.param("receivedAt", "2026-10-10T00:10")
+				.param("dueDate", "2026-10-12"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "receivedAt"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(feedbackOf(html, "receivedAt")).isEqualTo("Thời điểm nhận mẫu không được ở tương lai");
+		assertThat(html).contains("value=\"Paracetamol 500 mg\"").contains("value=\"PA-2601\"")
+			.contains("2026-10-10T00:10")
+			.contains("2026-10-12");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR02-34 Service ném lỗi dueDate: hiện lại form (200), câu BR-02 ở ô Hạn trả kết quả, dữ liệu đã nhập được giữ")
+	void dueDateBusinessErrorIsShownOnItsField() throws Exception {
+		when(sampleService.register(any(), eq("tiepnhan")))
+			.thenThrow(new BusinessException("dueDate", "Hạn trả kết quả phải từ ngày nhận mẫu trở đi"));
+
+		String html = mockMvc.perform(registrationOf("Paracetamol 500 mg", "PA-2601", "FINISHED_PRODUCT")
+				.param("receivedAt", "2026-10-10T00:10")
+				.param("dueDate", "2026-10-09"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "dueDate"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(feedbackOf(html, "dueDate")).isEqualTo("Hạn trả kết quả phải từ ngày nhận mẫu trở đi");
+		assertThat(html).contains("value=\"Paracetamol 500 mg\"").contains("value=\"PA-2601\"")
+			.contains("2026-10-10T00:10")
+			.contains("2026-10-09");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR02-35 Tên sản phẩm và số lô được cắt khoảng trắng hai đầu trước khi xuống service")
+	void registrationTrimsProductNameAndBatchNo() throws Exception {
+		when(sampleService.register(any(), eq("tiepnhan"))).thenReturn(sampleIn(SampleStatus.RECEIVED));
+
+		mockMvc.perform(registrationOf("  Paracetamol  ", " PA-2601 ", "FINISHED_PRODUCT"))
+			.andExpect(status().is3xxRedirection());
+
+		ArgumentCaptor<NewSample> sent = ArgumentCaptor.forClass(NewSample.class);
+		verify(sampleService).register(sent.capture(), eq("tiepnhan"));
+		assertThat(sent.getValue().productName()).isEqualTo("Paracetamol");
+		assertThat(sent.getValue().batchNo()).isEqualTo("PA-2601");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR02-36 Tên sản phẩm chỉ có khoảng trắng: \"Vui lòng nhập tên sản phẩm\" ở ô Tên sản phẩm, không gọi service")
+	void blankProductNameIsRejected() throws Exception {
+		String html = mockMvc.perform(registrationOf("   ", "PA-2601", "FINISHED_PRODUCT"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "productName"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(feedbackOf(html, "productName")).isEqualTo("Vui lòng nhập tên sản phẩm");
+		verifyNoInteractions(sampleService);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR02-37 Số lô \"PA 2601\": câu BR-02 ở ô Số lô, không gọi register")
+	void batchNoWithSpaceIsRejected() throws Exception {
+		String html = mockMvc.perform(registrationOf("Paracetamol", "PA 2601", "FINISHED_PRODUCT"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "batchNo"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(feedbackOf(html, "batchNo")).isEqualTo("Số lô chỉ gồm chữ không dấu, số, dấu - và /");
+		verifyNoInteractions(sampleService);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR02-38 Loại mẫu ngoài 4 hằng (TABLET): \"Vui lòng chọn loại mẫu\" ở ô Loại mẫu, không gọi register")
+	void unknownSampleTypeIsRejected() throws Exception {
+		String html = mockMvc.perform(registrationOf("Paracetamol", "PA-2601", "TABLET"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "sampleType"))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(feedbackOf(html, "sampleType")).isEqualTo("Vui lòng chọn loại mẫu");
+		verifyNoInteractions(sampleService);
+	}
+
 	private static MockHttpServletRequestBuilder registration(String priority) {
 		return post("/samples").with(csrf())
 			.param("productName", "Paracetamol 500 mg")
