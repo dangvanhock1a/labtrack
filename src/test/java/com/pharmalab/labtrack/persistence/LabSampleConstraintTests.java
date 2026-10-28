@@ -123,11 +123,18 @@ class LabSampleConstraintTests {
 	}
 
 	@Test
-	@DisplayName("TC-BR02-28 Ghi thẳng: tên sản phẩm chỉ gồm tab hoặc xuống dòng phải bị ck_lab_sample_product chặn (btrim một tham số chỉ cắt dấu cách)")
+	@DisplayName("TC-BR02-28 Ghi thẳng: tên sản phẩm chỉ gồm tab, xuống dòng hoặc ký tự điều khiển U+0001..U+0020 phải bị ck_lab_sample_product chặn")
 	void productNameOfOnlyWhitespaceControlCharsIsRejected() {
-		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, "\t"));
-		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, "\n"));
-		assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, " \t\r\n "));
+		for (String bad : new String[] { "\t", "\n", " \t\r\n ", "\f", "\u000B", "\u001F", "\u0001" }) {
+			assertViolates("ck_lab_sample_product", INSERT_SAMPLE, withValue(1, bad));
+		}
+	}
+
+	@Test
+	@DisplayName("TC-BR02-39 Ghi thẳng: tên có tab ở giữa (\"Para\\tcetamol\") hoặc một ký tự giữa các dấu cách (\" A \") ghi được, ck_lab_sample_product không chặn quá tay")
+	void productNameWithContentIsAccepted() {
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE, withValue(1, "Para\tcetamol"))).isEqualTo(1);
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE, withValue(1, " A "))).isEqualTo(1);
 	}
 
 	@Test
