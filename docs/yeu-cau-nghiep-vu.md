@@ -240,8 +240,8 @@ Bắt buộc, một trong: Nhiệt độ phòng (15–30 °C, mặc định), M�
 | Giao diện | Thymeleaf 3.1, HTML, CSS, JavaScript thuần, Bootstrap 5.3.8 |
 | CSDL | PostgreSQL 18, schema quản lý bằng Flyway |
 | Kiến trúc | 3 tầng: trình bày → nghiệp vụ → truy cập dữ liệu |
-| Kiểm thử | JUnit 6, Mockito, Spring MockMvc, Testcontainers (PostgreSQL thật), **Playwright** (E2E) |
-| Môi trường | Windows 11 + VS Code; Docker Desktop là tùy chọn (có đường thay thế không cần Docker) |
+| Kiểm thử | JUnit 6, Mockito, Spring MockMvc, PostgreSQL thật (CSDL `labtrack_test`), **Playwright** (E2E) |
+| Môi trường | Windows 11 + VS Code; PostgreSQL 18 cài trên máy, không dùng Docker |
 
 > **Ghi chú về "MyBatis 4.1.x".** MyBatis lõi đang ở 3.5.x. Số `4.1.x` là phiên bản của **`mybatis-spring-boot-starter`** dành cho Spring Boot 4.1. Spring Initializr (start.spring.io) tại thời điểm viết chỉ cho chọn MyBatis với Boot 4.0.x, nên ở Lab 03 bạn thêm starter này vào `pom.xml` thủ công.
 

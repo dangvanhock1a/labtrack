@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -28,7 +27,6 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.Tracing;
 import com.microsoft.playwright.options.AriaRole;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.service.LabSampleService;
@@ -42,12 +40,12 @@ import com.pharmalab.labtrack.service.NewSample;
  * Trình duyệt mở 1 lần cho mỗi lớp vì khởi động mất vài giây; cách ly giữa các test nằm ở {@link BrowserContext}
  * (cookie, phiên đăng nhập) và ở việc dọn CSDL trước mỗi test.
  * <p>
- * Kênh trình duyệt ({@code -De2e.channel=msedge} hoặc biến {@code E2E_BROWSER_CHANNEL}) dùng Edge/Chrome đã cài
- * sẵn trên máy, nên báo Playwright bỏ bước tải Chromium riêng (vài trăm MB, hay bị chặn sau proxy công ty).
- * {@code -De2e.headed=true} mở cửa sổ trình duyệt để xem test chạy.
+ * Kênh trình duyệt ({@code -De2e.channel}, failsafe mặc định {@code msedge} trong pom.xml; chạy từ IDE thì đọc
+ * biến {@code E2E_BROWSER_CHANNEL}) dùng Edge/Chrome đã cài sẵn trên máy, nên báo Playwright bỏ bước tải Chromium
+ * riêng (vài trăm MB, hay bị chặn sau proxy công ty). {@code -De2e.headed=true} mở cửa sổ trình duyệt để xem
+ * test chạy.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration.class)
 abstract class E2ETestBase {
 
 	private static final String PASSWORD = "Passw0rd!";

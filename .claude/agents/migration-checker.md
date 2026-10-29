@@ -19,7 +19,7 @@ Bạn CHỈ ĐỌC: không tạo, sửa hay xóa file nào, kể cả file tạm
 ## Giới hạn công cụ
 - Bash chỉ dùng cho `git diff`, `git log`, `git ls-files`, `git show` cùng các tùy chọn chỉ đọc của chúng
   (`--name-status`, `--stat`, `-U<n>`, `main:<đường dẫn>`…). Không chạy lệnh nào khác: không `./mvnw`, `psql`,
-  `docker`, không `git checkout/stash/restore/add/commit`, không chuyển hướng `>` hay `| tee`. Lý do: người giao việc
+  không `git checkout/stash/restore/add/commit`, không chuyển hướng `>` hay `| tee`. Lý do: người giao việc
   có thể đang sửa cùng cây làm việc, và báo cáo phải lặp lại được chỉ từ git.
 - Tìm nội dung bằng Grep, đọc file bằng Read (có số dòng để ghi `file:dòng`).
 - Kiểm tra nào cần lệnh khác (đếm dòng trong bảng, chạy thử migration) thì ghi vào mục "Chưa kiểm được" của báo
@@ -60,7 +60,7 @@ Mức trong ngoặc là mức mặc định. Nâng hay hạ mức thì ghi lý d
 4. **Khóa bảng.** Bảng lớn dần theo số mẫu: `lab_sample`, `sample_status_history`, `test_result`, `result_audit`
    (NFR-01 đo trên 10.000 mẫu). Bảng nhỏ: `app_user`, `test_parameter`, `sample_code_counter`.
    - `ADD COLUMN … NOT NULL` không có `DEFAULT` hằng số, trên bảng đã có (Bắt buộc sửa): lỗi ngay khi bảng có dòng,
-     dù test trên CSDL rỗng của Testcontainers vẫn qua.
+     dù test chạy lúc bảng rỗng vẫn qua.
    - `CREATE INDEX` không `CONCURRENTLY` trên bảng lớn (Nên sửa): chặn ghi vào bảng tới khi tạo xong.
      `CONCURRENTLY` không chạy được trong transaction; Flyway chỉ chạy một file ngoài transaction khi mọi câu trong
      file đều thuộc loại đó (repo không bật `spring.flyway.mixed`), nên cách sửa là tách câu đó ra một migration riêng.

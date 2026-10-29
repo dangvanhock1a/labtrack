@@ -10,7 +10,7 @@ paths:
 - Boot 4: dùng `@MockitoBean`, không dùng `@MockBean`; `@WebMvcTest` nằm ở `org.springframework.boot.webmvc.test.autoconfigure`. Sai: `org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest`.
 - Người đăng nhập: `@WithAppUser(username, role)`; vai trò là tham số thì `with(user(WithAppUserSecurityContextFactory.principal(…)))`. Không dùng `@WithMockUser` cho test render trang (navbar đọc `principal.fullName`).
 - Mọi POST qua MockMvc thêm `.with(csrf())`, trừ case cố ý kiểm việc thiếu CSRF.
-- Cần CSDL thật: `@SpringBootTest` + `@Import(TestcontainersConfiguration.class)` + `@Transactional`.
+- Cần CSDL thật: `@SpringBootTest` + `@Transactional`, chạy trên `labtrack_test` (`src/test/resources/config/application.yml`). Sai: thêm Testcontainers, vì máy không có Docker.
 - Test không có transaction bao ngoài (test đồng thời, `RANDOM_PORT`) để lại dữ liệu không xóa được (trigger V4): chỉ đếm trên dữ liệu do chính test tạo. Sai: `SELECT count(*) FROM result_audit`. Đúng: lọc theo id mẫu hoặc id kết quả của test.
 - Trang lỗi `templates/error/*.html` chỉ hiện qua Tomcat thật: test bằng `@SpringBootTest(webEnvironment = RANDOM_PORT)`; `@WebMvcTest` không chuyển sang `/error`.
 - Ràng buộc CSDL được test bằng SQL ghi thẳng như `TestResultConstraintTests`, kiểm đúng tên ràng buộc trong lỗi.

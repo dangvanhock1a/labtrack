@@ -1,0 +1,7 @@
+# Test chạy trên PostgreSQL cài sẵn trên máy, CSDL riêng labtrack_test, không bao giờ trên CSDL dev labtrack.
+# Spring Boot đọc classpath:/config/ sau classpath:/, nên file này (chỉ có trên classpath test) ghi đè URL của
+# src/main/resources/application.yml. Biến riêng TEST_DB_URL thay cho DB_URL: DB_URL lỡ trỏ CSDL dev thì test vẫn
+# không chạy lên đó.
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5433/labtrack_test}

@@ -7,11 +7,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.AppUser;
 import com.pharmalab.labtrack.domain.UserRole;
 
@@ -21,7 +19,6 @@ import com.pharmalab.labtrack.domain.UserRole;
  * ai đăng nhập được, mà ứng dụng vẫn khởi động bình thường.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
 class AppUserMapperTests {
 

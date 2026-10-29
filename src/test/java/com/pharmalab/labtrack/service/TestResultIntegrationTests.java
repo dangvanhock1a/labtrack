@@ -16,13 +16,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.ResultAction;
 import com.pharmalab.labtrack.domain.ResultAudit;
@@ -40,7 +38,6 @@ import com.pharmalab.labtrack.persistence.TestParameterMapper;
  * khác đã commit không xóa được (SPEC-004 L1).
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
 class TestResultIntegrationTests {
 

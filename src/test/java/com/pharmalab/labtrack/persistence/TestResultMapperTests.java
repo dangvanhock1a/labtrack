@@ -18,11 +18,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.ResultAction;
 import com.pharmalab.labtrack.domain.ResultAudit;
@@ -41,7 +39,6 @@ import com.pharmalab.labtrack.service.NewSample;
  * được ghi thẳng qua mapper, không qua tầng nghiệp vụ, nên test tự chụp tiêu chuẩn và tự tính verdict.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
 class TestResultMapperTests {
 

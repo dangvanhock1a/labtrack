@@ -512,7 +512,9 @@ class SampleControllerTests {
 		String lateRow = tbody.substring(0, tbody.indexOf("LS-2026-00002"));
 		String onTimeRow = tbody.substring(tbody.indexOf("LS-2026-00002"));
 		assertThat(lateRow).contains("data-testid=\"overdue-badge\"");
-		assertThat(tagContaining(lateRow, "data-testid=\"overdue-badge\"")).contains("text-bg-danger").contains(">Quá hạn<");
+		// tagContaining chỉ trả thẻ mở, nên chữ của nhãn được kiểm ngay sau thẻ đó.
+		assertThat(tagContaining(lateRow, "data-testid=\"overdue-badge\"")).contains("text-bg-danger");
+		assertThat(lateRow).contains("data-testid=\"overdue-badge\">Quá hạn</span>");
 		assertThat(onTimeRow).doesNotContain("overdue-badge").doesNotContain("Quá hạn");
 	}
 
@@ -544,7 +546,7 @@ class SampleControllerTests {
 
 	@Test
 	@WithAppUser(username = "kiemnghiem1", role = ANALYST)
-	@DisplayName("TC-BR03-06Chuyển trạng thái sai: quay lại trang chi tiết kèm thông báo lỗi dạng flash")
+	@DisplayName("TC-BR03-06 Chuyển trạng thái sai: quay lại trang chi tiết kèm thông báo lỗi dạng flash")
 	void startTestingFailureRedirectsToDetailWithFlashError() throws Exception {
 		when(sampleService.startTesting(SAMPLE_ID, "kiemnghiem1"))
 			.thenThrow(new InvalidStatusTransitionException(SampleStatus.COMPLETED, SampleStatus.IN_TESTING));
