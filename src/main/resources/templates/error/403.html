@@ -2,13 +2,13 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Không có quyền')}"></head>
 <body>
-<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('')}"></nav>
 
 <!-- Boot hiển thị trang này cho mọi phản hồi 403. Người đã đăng nhập nhận 403 khi vai trò không đủ quyền
 	 (BR-12), hoặc khi gửi một biểu mẫu cũ mà CSRF token đã đổi vì họ vừa đăng nhập lại. Người chưa đăng nhập
 	 chỉ nhận 403 khi CSRF token không khớp, thường do phiên hết hạn trong lúc trang còn mở; các URL cần
 	 đăng nhập khác thì chuyển họ tới /login chứ không trả 403. -->
-<main class="container" style="max-width: 720px">
+<main id="main" class="container lt-narrow lt-notice">
 	<th:block sec:authorize="isAuthenticated()">
 		<h1 class="h3 mb-3">Bạn không có quyền thực hiện thao tác này</h1>
 		<p>

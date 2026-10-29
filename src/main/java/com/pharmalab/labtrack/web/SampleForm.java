@@ -7,6 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.service.NewSample;
 
 import jakarta.validation.constraints.NotBlank;
@@ -39,6 +40,9 @@ public class SampleForm {
 	 */
 	private SamplePriority priority;
 
+	/** BR-18: không có {@code @NotNull}, cùng lý do như {@link #priority}; để trống thì nhận Nhiệt độ phòng. */
+	private StorageCondition storageCondition;
+
 	@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
 	private LocalDateTime receivedAt;
 
@@ -51,13 +55,14 @@ public class SampleForm {
 		form.setBatchNo(sample.batchNo());
 		form.setSampleType(sample.sampleType());
 		form.setPriority(sample.priority());
+		form.setStorageCondition(sample.storageCondition());
 		form.setReceivedAt(sample.receivedAt());
 		form.setDueDate(sample.dueDate());
 		return form;
 	}
 
 	NewSample toNewSample() {
-		return new NewSample(productName, batchNo, sampleType, priority, receivedAt, dueDate);
+		return new NewSample(productName, batchNo, sampleType, priority, storageCondition, receivedAt, dueDate);
 	}
 
 	public String getProductName() {
@@ -90,6 +95,14 @@ public class SampleForm {
 
 	public void setPriority(SamplePriority priority) {
 		this.priority = priority;
+	}
+
+	public StorageCondition getStorageCondition() {
+		return storageCondition;
+	}
+
+	public void setStorageCondition(StorageCondition storageCondition) {
+		this.storageCondition = storageCondition;
 	}
 
 	public LocalDateTime getReceivedAt() {

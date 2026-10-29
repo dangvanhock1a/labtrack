@@ -23,7 +23,8 @@ import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.NewSample;
 
 /**
- * Ràng buộc kết luận của V5 (BR-11) và mức ưu tiên của V6 (BR-13), thử bằng SQL ghi thẳng qua {@link JdbcTemplate}:
+ * Ràng buộc kết luận của V5 (BR-11), mức ưu tiên của V6 (BR-13) và điều kiện bảo quản của V7 (BR-18), thử bằng SQL ghi
+ * thẳng qua {@link JdbcTemplate}:
  * CSDL vẫn phải chặn khi tầng nghiệp vụ bị bỏ qua. Mỗi câu vi phạm chạy trong một savepoint và lỗi được nhận diện bằng
  * tên ràng buộc, cùng lý do như {@link TestResultConstraintTests}.
  */
@@ -224,6 +225,32 @@ class LabSampleConstraintTests {
 				SELECT indexdef FROM pg_indexes
 				WHERE schemaname = current_schema() AND indexname = 'ix_lab_sample_status_received'""", String.class))
 			.endsWith("USING btree (status, received_at DESC)");
+	}
+
+	@Test
+	@DisplayName("TC-BR18-01 Ghi thẳng: điều kiện bảo quản ngoài ROOM_TEMPERATURE/COOL/FROZEN bị ck_lab_sample_storage_condition chặn, NULL bị NOT NULL chặn; INSERT không ghi cột này thì nhận ROOM_TEMPERATURE")
+	void storageConditionColumnIsConstrained() {
+		long sampleId = newSampleInTesting();
+
+		assertViolates("ck_lab_sample_storage_condition",
+				"UPDATE lab_sample SET storage_condition = 'FRIDGE' WHERE id = ?", sampleId);
+		assertViolates("ck_lab_sample_storage_condition",
+				"UPDATE lab_sample SET storage_condition = 'cool' WHERE id = ?", sampleId);
+		assertViolates("ck_lab_sample_storage_condition",
+				"UPDATE lab_sample SET storage_condition = '' WHERE id = ?", sampleId);
+		// SQLSTATE 23502 not_null_violation, cùng lý do như TC-BR13-02.
+		assertRejected("UPDATE lab_sample SET storage_condition = NULL WHERE id = ?", sampleId)
+			.rootCause()
+			.isInstanceOfSatisfying(SQLException.class, e -> assertThat(e.getSQLState()).isEqualTo("23502"));
+
+		assertThat(jdbcTemplate.update("UPDATE lab_sample SET storage_condition = 'FROZEN' WHERE id = ?", sampleId))
+			.isEqualTo(1);
+		// INSERT_SAMPLE không ghi storage_condition, như mẫu có trước V7.
+		Object[] legacy = validRow();
+		assertThat(jdbcTemplate.update(INSERT_SAMPLE, legacy)).isEqualTo(1);
+		assertThat(jdbcTemplate.queryForObject("SELECT storage_condition FROM lab_sample WHERE code = ?", String.class,
+				legacy[0]))
+			.isEqualTo("ROOM_TEMPERATURE");
 	}
 
 }

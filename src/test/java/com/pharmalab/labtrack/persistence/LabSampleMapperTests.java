@@ -27,6 +27,7 @@ import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.TestParameter;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.service.LabSampleService;
@@ -71,6 +72,7 @@ class LabSampleMapperTests {
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
 		sample.setPriority(NORMAL);
+		sample.setStorageCondition(StorageCondition.ROOM_TEMPERATURE);
 		sample.setStatus(SampleStatus.RECEIVED);
 		sample.setReceivedAt(MARCH_1);
 		sample.setDueDate(LocalDate.of(2000, 3, 31));
@@ -115,6 +117,19 @@ class LabSampleMapperTests {
 		assertThat(Stream.of(low, urgent, registered)
 			.map(sample -> sampleMapper.findById(sample.getId()).orElseThrow().getPriority()))
 			.containsExactly(LOW, URGENT, NORMAL);
+	}
+
+	@Test
+	@DisplayName("TC-BR18-02 Ghi và đọc điều kiện bảo quản: Mát và Đông lạnh ghi qua mapper giữ nguyên; đăng ký qua service không chọn thì Nhiệt độ phòng")
+	void writesAndReadsStorageCondition() {
+		LabSample cool = insertSample("LS-2000-00003", sample -> sample.setStorageCondition(StorageCondition.COOL));
+		LabSample frozen = insertSample("LS-2000-00004", sample -> sample.setStorageCondition(StorageCondition.FROZEN));
+		LabSample registered = sampleService.register(
+				new NewSample("Paracetamol 500 mg", "PA-2601", SampleType.FINISHED_PRODUCT, null, null), "tiepnhan");
+
+		assertThat(Stream.of(cool, frozen, registered)
+			.map(sample -> sampleMapper.findById(sample.getId()).orElseThrow().getStorageCondition()))
+			.containsExactly(StorageCondition.COOL, StorageCondition.FROZEN, StorageCondition.ROOM_TEMPERATURE);
 	}
 
 	@Test

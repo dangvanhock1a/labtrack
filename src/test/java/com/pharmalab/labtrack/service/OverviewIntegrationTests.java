@@ -27,6 +27,7 @@ import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 
@@ -77,6 +78,7 @@ class OverviewIntegrationTests {
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
 		sample.setPriority(priority);
+		sample.setStorageCondition(StorageCondition.ROOM_TEMPERATURE);
 		sample.setStatus(completed ? SampleStatus.IN_TESTING : status);
 		sample.setReceivedAt(OffsetDateTime.parse(receivedAt));
 		sample.setDueDate(LocalDate.parse(dueDate));

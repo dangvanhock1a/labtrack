@@ -2,67 +2,100 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('Đăng ký mẫu')}"></head>
 <body>
-<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('new')}"></nav>
 
-<main class="container" style="max-width: 720px">
+<main id="main" class="container lt-narrow">
 	<h1 class="h3 mb-3">Đăng ký mẫu</h1>
 
-	<form th:action="@{/samples}" th:object="${sampleForm}" method="post" novalidate>
+	<form class="lt-panel p-3 p-sm-4" th:action="@{/samples}" th:object="${sampleForm}" method="post" novalidate>
 		<div class="alert alert-danger" role="alert" th:if="${#fields.hasGlobalErrors()}">
 			<p class="mb-0" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></p>
 		</div>
 
+		<!-- Ô sai mang aria-invalid và aria-describedby trỏ tới câu lỗi bên dưới, để trình đọc màn hình đọc lỗi khi
+			 focus vào ô; th:errorclass chỉ đổi màu. autocomplete="off": trình duyệt gợi ý tên sản phẩm hay số lô của
+			 lần nhập trước là mời nhập sai lô. -->
 		<div class="mb-3">
 			<label for="productName" class="form-label">Tên sản phẩm</label>
 			<input type="text" th:field="*{productName}" class="form-control" th:errorclass="is-invalid"
-				   maxlength="200">
-			<div class="invalid-feedback" data-testid="productName-error" th:errors="*{productName}"></div>
+				   maxlength="200" autocomplete="off"
+				   th:attr="aria-invalid=${#fields.hasErrors('productName')} ? 'true' : null,
+							aria-describedby=${#fields.hasErrors('productName')} ? 'productName-feedback' : null">
+			<div class="invalid-feedback" id="productName-feedback" data-testid="productName-error" th:errors="*{productName}"></div>
 		</div>
 
 		<div class="mb-3">
 			<label for="batchNo" class="form-label">Số lô</label>
 			<input type="text" th:field="*{batchNo}" class="form-control" th:errorclass="is-invalid"
-				   maxlength="50">
-			<div class="invalid-feedback" data-testid="batchNo-error" th:errors="*{batchNo}"></div>
+				   maxlength="50" autocomplete="off" spellcheck="false"
+				   th:attr="aria-invalid=${#fields.hasErrors('batchNo')} ? 'true' : null,
+							aria-describedby=${#fields.hasErrors('batchNo')} ? 'batchNo-feedback' : null">
+			<div class="invalid-feedback" id="batchNo-feedback" data-testid="batchNo-error" th:errors="*{batchNo}"></div>
 		</div>
 
 		<div class="mb-3">
 			<label for="sampleType" class="form-label">Loại mẫu</label>
-			<select th:field="*{sampleType}" class="form-select" th:errorclass="is-invalid">
-				<option value="">-- Chọn loại mẫu --</option>
+			<select th:field="*{sampleType}" class="form-select" th:errorclass="is-invalid"
+					th:attr="aria-invalid=${#fields.hasErrors('sampleType')} ? 'true' : null,
+							 aria-describedby=${#fields.hasErrors('sampleType')} ? 'sampleType-feedback' : null">
+				<option value="">Chọn loại mẫu…</option>
 				<option th:each="t : ${sampleTypes}" th:value="${t}" th:text="${t.label}"></option>
 			</select>
-			<div class="invalid-feedback" data-testid="sampleType-error" th:errors="*{sampleType}"></div>
+			<div class="invalid-feedback" id="sampleType-feedback" data-testid="sampleType-error" th:errors="*{sampleType}"></div>
 		</div>
 
 		<!-- BR-13: không có lựa chọn trống, vì form mới đã chọn sẵn Bình thường (LabSampleService.newSampleDefaults). -->
 		<div class="mb-3">
 			<label for="priority" class="form-label">Mức ưu tiên</label>
-			<select th:field="*{priority}" class="form-select" th:errorclass="is-invalid">
+			<select th:field="*{priority}" class="form-select" th:errorclass="is-invalid"
+					th:attr="aria-invalid=${#fields.hasErrors('priority')} ? 'true' : null,
+							 aria-describedby=${#fields.hasErrors('priority')} ? 'priority-feedback' : null">
 				<option th:each="p : ${priorities}" th:value="${p}" th:text="${p.label}"></option>
 			</select>
-			<div class="invalid-feedback" th:errors="*{priority}"></div>
+			<div class="invalid-feedback" id="priority-feedback" th:errors="*{priority}"></div>
+		</div>
+
+		<!-- BR-18: như Mức ưu tiên, không có lựa chọn trống; form mới đã chọn sẵn Nhiệt độ phòng. -->
+		<div class="mb-3">
+			<label for="storageCondition" class="form-label">Điều kiện bảo quản</label>
+			<select th:field="*{storageCondition}" class="form-select" th:errorclass="is-invalid"
+					th:attr="aria-invalid=${#fields.hasErrors('storageCondition')} ? 'true' : null,
+							 aria-describedby=${#fields.hasErrors('storageCondition')} ? 'storageCondition-feedback' : null">
+				<option th:each="c : ${storageConditions}" th:value="${c}" th:text="${c.label}"></option>
+			</select>
+			<div class="invalid-feedback" id="storageCondition-feedback" th:errors="*{storageCondition}"></div>
 		</div>
 
 		<div class="row">
 			<div class="col-sm-6 mb-3">
 				<label for="receivedAt" class="form-label">Thời điểm nhận</label>
 				<input type="datetime-local" step="60" th:field="*{receivedAt}" class="form-control"
-					   th:errorclass="is-invalid">
-				<div class="invalid-feedback" th:errors="*{receivedAt}"></div>
+					   th:errorclass="is-invalid"
+					   th:attr="aria-invalid=${#fields.hasErrors('receivedAt')} ? 'true' : null,
+								aria-describedby=${#fields.hasErrors('receivedAt')} ? 'receivedAt-feedback' : null">
+				<div class="invalid-feedback" id="receivedAt-feedback" th:errors="*{receivedAt}"></div>
 			</div>
 			<div class="col-sm-6 mb-3">
 				<label for="dueDate" class="form-label">Hạn trả kết quả</label>
-				<input type="date" th:field="*{dueDate}" class="form-control" th:errorclass="is-invalid">
-				<div class="invalid-feedback" th:errors="*{dueDate}"></div>
+				<input type="date" th:field="*{dueDate}" class="form-control" th:errorclass="is-invalid"
+					   th:attr="aria-invalid=${#fields.hasErrors('dueDate')} ? 'true' : null,
+								aria-describedby=${#fields.hasErrors('dueDate')} ? 'dueDate-feedback' : null">
+				<div class="invalid-feedback" id="dueDate-feedback" th:errors="*{dueDate}"></div>
 			</div>
 		</div>
 
-		<button type="submit" class="btn btn-primary">Đăng ký</button>
-		<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại</a>
+		<div class="d-flex gap-2 pt-1">
+			<button type="submit" class="btn btn-primary">Đăng ký</button>
+			<a class="btn btn-outline-secondary" th:href="@{/samples}">Quay lại</a>
+		</div>
 	</form>
 </main>
 
 <th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+<script>
+	// Server trả lại form kèm lỗi: đưa focus tới ô sai đầu tiên để sửa ngay; trình đọc màn hình đọc luôn câu lỗi
+	// nhờ aria-describedby.
+	document.querySelector('form .is-invalid')?.focus();
+</script>
 </body>
 </html>

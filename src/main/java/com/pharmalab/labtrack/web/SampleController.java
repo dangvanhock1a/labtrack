@@ -1,5 +1,6 @@
 package com.pharmalab.labtrack.web;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.Comparator;
 import java.util.List;
@@ -7,7 +8,11 @@ import java.util.Locale;
 
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.context.MessageSource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -28,10 +33,12 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.service.BusinessException;
 import com.pharmalab.labtrack.service.ConclusionReadiness;
+import com.pharmalab.labtrack.service.CsvFile;
 import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.ResultSheetRow;
 import com.pharmalab.labtrack.service.TestResultService;
@@ -89,6 +96,11 @@ public class SampleController {
 		return SampleStatus.values();
 	}
 
+	@ModelAttribute("storageConditions")
+	StorageCondition[] storageConditions() {
+		return StorageCondition.values();
+	}
+
 	/**
 	 * Danh sách mẫu có tìm kiếm, lọc và phân trang (BR-13). {@code bindingErrors} có mặt để giá trị lọc hay số trang
 	 * không đổi được kiểu không thành lỗi 400: trường đó để trống, tức là không lọc theo nó.
@@ -96,7 +108,23 @@ public class SampleController {
 	@GetMapping
 	String list(@ModelAttribute("filter") SampleFilterForm filter, BindingResult bindingErrors, Model model) {
 		model.addAttribute("samplePage", sampleService.search(filter.toFilter(), filter.pageOrFirst()));
+		model.addAttribute("exportLimit", LabSampleService.EXPORT_LIMIT);
 		return "samples/list";
+	}
+
+	/**
+	 * Xuất CSV đúng bộ lọc đang xem (BR-16): đọc cùng {@link SampleFilterForm} như {@link #list}, nhưng bỏ qua số trang
+	 * vì file chứa mọi trang. Bộ lọc vượt giới hạn dòng thì {@link BusinessException} đi qua
+	 * {@code GlobalControllerAdvice}: về danh sách kèm thông báo lỗi.
+	 */
+	@GetMapping("/export.csv")
+	ResponseEntity<byte[]> exportCsv(@ModelAttribute("filter") SampleFilterForm filter, BindingResult bindingErrors) {
+		CsvFile file = sampleService.exportCsv(filter.toFilter());
+		return ResponseEntity.ok()
+			.contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+			.header(HttpHeaders.CONTENT_DISPOSITION,
+					ContentDisposition.attachment().filename(file.fileName()).build().toString())
+			.body(file.content());
 	}
 
 	@GetMapping("/new")

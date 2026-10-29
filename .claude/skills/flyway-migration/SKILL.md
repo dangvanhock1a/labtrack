@@ -20,7 +20,7 @@ Thay đổi cần làm: $ARGUMENTS
 
 ## Quy trình
 1. **Version tiếp theo.** n = số V lớn nhất ở danh sách trên + 1, và phải trùng số migration của BR ở mục 13
-   `docs/yeu-cau-nghiep-vu.md` (V6 = BR-13, V7 = BR-17…). Hai số lệch nhau → dừng, hỏi người dùng.
+   `docs/yeu-cau-nghiep-vu.md` (V6 = BR-13, V7 = BR-18…). Hai số lệch nhau → dừng, hỏi người dùng.
    Tên theo mẫu sẵn có: động từ tiếng Anh, snake_case, ví dụ `V6__add_priority_to_lab_sample.sql`.
 2. **SQL** trong `src/main/resources/db/migration/`:
    - Dòng đầu `-- BR-xx: <lý do>` như V5; chú thích nói vì sao, không tả lại câu lệnh.

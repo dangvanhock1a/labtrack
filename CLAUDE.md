@@ -35,7 +35,7 @@ Không dùng H2: mọi test chạy trên PostgreSQL thật.
 
 ## Bẫy ở mọi loại việc
 - Đổi schema là viết migration MỚI `V<n+1>__mo_ta.sql`. Không sửa migration đã commit.
-- Tên hằng `SampleStatus`, `SampleType`, `SamplePriority`, `ResultStatus`, `Verdict`, `ResultAction`, `UserRole` được ghi nguyên văn vào CSDL (`CHECK`, trigger V4) và template. Thêm, đổi hay xóa hằng → migration mới + sửa template.
+- Tên hằng `SampleStatus`, `SampleType`, `SamplePriority`, `StorageCondition`, `ResultStatus`, `Verdict`, `ResultAction`, `UserRole` được ghi nguyên văn vào CSDL (`CHECK`, trigger V4) và template. Thêm, đổi hay xóa hằng → migration mới + sửa template.
 
 ## Quy ước
 - Branch `feature/LT-xxx-mo-ta`. Conventional Commits, mô tả tiếng Việt, mã BR ở cuối dòng tiêu đề, ví dụ `feat(sample): nhận kiểm nghiệm và hủy mẫu có lý do (BR-03, BR-05)`.

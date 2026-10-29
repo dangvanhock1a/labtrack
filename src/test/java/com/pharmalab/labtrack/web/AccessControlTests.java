@@ -9,6 +9,8 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -47,10 +49,12 @@ import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.domain.UserRole;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.security.WithAppUser;
+import com.pharmalab.labtrack.service.CsvFile;
 import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.Overview;
 import com.pharmalab.labtrack.service.SamplePage;
@@ -96,6 +100,7 @@ class AccessControlTests {
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
 		sample.setPriority(SamplePriority.NORMAL);
+		sample.setStorageCondition(StorageCondition.ROOM_TEMPERATURE);
 		sample.setStatus(SampleStatus.RECEIVED);
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse("2026-10-14"));
@@ -364,6 +369,50 @@ class AccessControlTests {
 			.andExpect(header().string(HttpHeaders.LOCATION, endsWith("/login")));
 
 		verifyNoInteractions(sampleService);
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}: HTTP {1}")
+	@DisplayName("TC-BR12-22 GET /samples/export.csv: Người duyệt và Quản lý tải được, Tiếp nhận và Kiểm nghiệm viên gõ thẳng URL thì nhận 403 (BR-16, ma trận mục 9)")
+	@CsvSource(textBlock = """
+			RECEPTIONIST,   403
+			ANALYST,        403
+			REVIEWER,       200
+			MANAGER,        200
+			""")
+	void exportOnlyForReviewerAndManager(UserRole role, int httpStatus) throws Exception {
+		when(sampleService.exportCsv(any())).thenReturn(new CsvFile("labtrack-mau-2026-10-29.csv", new byte[0]));
+
+		mockMvc.perform(get("/samples/export.csv").with(user(principal("nguoidung", "Người dùng thử", role))))
+			.andExpect(status().is(httpStatus));
+
+		verify(sampleService, times(httpStatus == 200 ? 1 : 0)).exportCsv(any());
+	}
+
+	@Test
+	@DisplayName("TC-BR12-23 Chưa đăng nhập: gõ thẳng /samples/export.csv thì bị chuyển tới trang đăng nhập, không xuất gì")
+	void anonymousExportIsRedirectedToLogin() throws Exception {
+		mockMvc.perform(get("/samples/export.csv"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string(HttpHeaders.LOCATION, endsWith("/login")));
+
+		verifyNoInteractions(sampleService);
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}: thấy Xuất CSV = {1}")
+	@DisplayName("TC-BR12-24 Chỉ Người duyệt và Quản lý thấy nút Xuất CSV trên danh sách mẫu")
+	@CsvSource(textBlock = """
+			RECEPTIONIST,   false
+			ANALYST,        false
+			REVIEWER,       true
+			MANAGER,        true
+			""")
+	void exportButtonOnlyForReviewerAndManager(UserRole role, boolean visible) throws Exception {
+		givenNoSamples();
+
+		mockMvc.perform(get("/samples").with(user(principal("nguoidung", "Người dùng thử", role))))
+			.andExpect(status().isOk())
+			.andExpect(content().string(presentIf(visible, "href=\"/samples/export.csv\"")))
+			.andExpect(content().string(presentIf(visible, "Xuất CSV")));
 	}
 
 	@ParameterizedTest(name = "[{index}] /login?{0}")

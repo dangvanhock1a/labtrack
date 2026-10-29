@@ -31,6 +31,7 @@ import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.StatusHistory;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
 import com.pharmalab.labtrack.persistence.TestResultMapper;
@@ -241,6 +242,26 @@ class LabSampleServiceTests {
 				priority, null, null), "demo");
 
 		assertThat(savedSample().getPriority()).isEqualTo(priority);
+	}
+
+	@Test
+	@DisplayName("TC-BR18-03 Form mới chọn sẵn Nhiệt độ phòng; đăng ký không chọn điều kiện bảo quản thì lưu Nhiệt độ phòng")
+	void storageConditionDefaultsToRoomTemperature() {
+		LabSampleService service = serviceAt(MORNING);
+
+		assertThat(service.newSampleDefaults().storageCondition()).isEqualTo(StorageCondition.ROOM_TEMPERATURE);
+		service.register(newSample(null, null), "demo");
+		assertThat(savedSample().getStorageCondition()).isEqualTo(StorageCondition.ROOM_TEMPERATURE);
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}")
+	@EnumSource(StorageCondition.class)
+	@DisplayName("TC-BR18-04 Điều kiện bảo quản đã chọn được lưu nguyên")
+	void savesChosenStorageCondition(StorageCondition storageCondition) {
+		serviceAt(MORNING).register(new NewSample("Paracetamol 500 mg", "PA-2601", SampleType.FINISHED_PRODUCT, null,
+				storageCondition, null, null), "demo");
+
+		assertThat(savedSample().getStorageCondition()).isEqualTo(storageCondition);
 	}
 
 	@Test

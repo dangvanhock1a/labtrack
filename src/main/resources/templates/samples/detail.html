@@ -2,9 +2,9 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head(${sample.code})}"></head>
 <body>
-<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('')}"></nav>
 
-<main class="container">
+<main id="main" class="container">
 	<nav aria-label="Đường dẫn">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a th:href="@{/samples}">Danh sách mẫu</a></li>
@@ -15,9 +15,9 @@
 	<div th:replace="~{fragments/layout :: flash}"></div>
 
 	<div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
-		<div class="d-flex flex-wrap align-items-center gap-2">
+		<div class="d-flex flex-wrap align-items-center gap-2 lt-headline">
 			<!-- Chữ "Mẫu " ẩn giữ tên tiêu đề "Mẫu LS-…" cho trình đọc màn hình; E2E tìm trang theo tên đó. -->
-			<h1 class="h3 mb-0"><span class="visually-hidden">Mẫu </span><span th:text="${sample.code}">LS-2026-00001</span></h1>
+			<h1 class="h3 mb-0 lt-code-title"><span class="visually-hidden">Mẫu </span><span th:text="${sample.code}">LS-2026-00001</span></h1>
 			<span data-testid="status-badge"><span th:replace="~{fragments/layout :: statusBadge(${sample.status})}"></span></span>
 			<th:block th:if="${sample.overdue}">
 				<span th:replace="~{fragments/layout :: overdueBadge}"></span>
@@ -76,7 +76,7 @@
 					<h2 class="h6 mb-0" id="infoTitle">Thông tin mẫu</h2>
 				</div>
 				<div class="card-body">
-					<dl class="row mb-0">
+					<dl class="row mb-0 lt-spec">
 						<dt class="col-sm-5">Sản phẩm</dt>
 						<dd class="col-sm-7" th:text="${sample.productName}"></dd>
 
@@ -88,6 +88,9 @@
 
 						<dt class="col-sm-5">Mức ưu tiên</dt>
 						<dd class="col-sm-7"><span th:replace="~{fragments/layout :: priorityBadge(${sample.priority})}"></span></dd>
+
+						<dt class="col-sm-5">Bảo quản</dt>
+						<dd class="col-sm-7" data-testid="storage-condition" th:text="${sample.storageCondition.label}"></dd>
 
 						<dt class="col-sm-5">Nhận lúc</dt>
 						<dd class="col-sm-7" th:text="${@fmt.dateTime(sample.receivedAt)}"></dd>
@@ -125,7 +128,7 @@
 					<p th:if="${sample.status.name() == 'CANCELLED' and !#lists.isEmpty(resultSheet.?[pending()])}"
 					   class="alert alert-warning py-2">Mẫu đã hủy, kết quả chờ duyệt không còn được xử lý</p>
 					<div class="table-responsive">
-						<table class="table table-sm align-middle mb-0">
+						<table class="table table-sm align-middle mb-0 lt-table">
 							<thead>
 							<tr>
 								<th scope="col">Chỉ tiêu</th>
@@ -139,14 +142,17 @@
 							<tbody data-testid="result-table">
 							<th:block th:each="row : ${resultSheet}" th:with="p=${row.parameter()}, r=${row.effective()}">
 								<tr>
-									<th scope="row" class="fw-normal" style="min-width: 8rem">
+									<!-- id này là đích aria-describedby của các nút Lưu, Duyệt, Từ chối trên cùng hàng: mỗi
+										 chỉ tiêu có nút riêng nhưng tên nút giống nhau, trình đọc màn hình cần biết nút thuộc
+										 chỉ tiêu nào. -->
+									<th scope="row" class="fw-normal" style="min-width: 8rem" th:id="|param-${p.id}|">
 										<span th:text="${p.name}">pH</span>
 										<span th:unless="${p.active}" class="badge text-bg-light">Ngừng sử dụng</span>
 									</th>
 									<td class="text-nowrap" th:text="${row.specLabel()}">4.5 – 7</td>
 									<td data-testid="result-value">
 										<th:block th:if="${r != null}">
-											<span class="text-nowrap" th:text="|${r.value.toPlainString()} ${r.unit}|">6.2 pH</span>
+											<span class="text-nowrap lt-num" th:text="|${r.value.toPlainString()} ${r.unit}|">6.2 pH</span>
 											<span th:if="${r.attemptNo != null and r.attemptNo > 1}"
 												  class="text-body-secondary text-nowrap" th:text="|(Lần ${r.attemptNo})|">(Lần 2)</span>
 										</th:block>
@@ -159,9 +165,11 @@
 											<div class="input-group input-group-sm flex-nowrap">
 												<input type="number" class="form-control" th:id="|value-${p.id}|" name="value"
 													   min="0" step="0.0001" inputmode="decimal" required style="min-width: 6rem"
-													   th:classappend="${errorParameterId == p.id} ? 'is-invalid'">
+													   th:classappend="${errorParameterId == p.id} ? 'is-invalid'"
+													   autocomplete="off" th:attr="aria-invalid=${errorParameterId == p.id} ? 'true' : null">
 												<span class="input-group-text" th:text="${p.unit}">pH</span>
-												<button type="submit" class="btn btn-primary">Lưu</button>
+												<button type="submit" class="btn btn-primary"
+														th:attr="aria-describedby=|param-${p.id}|">Lưu</button>
 											</div>
 										</form>
 										<span th:if="${r == null and !(canEnter and row.awaitingEntry())}"
@@ -196,10 +204,10 @@
 												<form method="post"
 													  th:action="@{/samples/{id}/results/{resultId}/approve(id=${sample.id}, resultId=${r.id})}">
 													<button type="submit" class="btn btn-sm btn-success" th:disabled="${own}"
-															th:attr="aria-describedby=${own} ? |fourEyes-${r.id}| : null">Duyệt</button>
+															th:attr="aria-describedby=${own} ? |fourEyes-${r.id}| : |param-${p.id}|">Duyệt</button>
 												</form>
 												<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
-														th:attr="data-bs-target=|#rejectModal-${r.id}|, aria-describedby=${own} ? |fourEyes-${r.id}| : null"
+														th:attr="data-bs-target=|#rejectModal-${r.id}|, aria-describedby=${own} ? |fourEyes-${r.id}| : |param-${p.id}|"
 														th:disabled="${own}">Từ chối</button>
 											</div>
 											<small th:if="${own}" class="d-block text-body-secondary" th:id="|fourEyes-${r.id}|"
@@ -212,7 +220,7 @@
 								<tr th:each="old : ${row.rejected()}" class="small" data-testid="rejected-result">
 									<td colspan="6" class="ps-4 text-body-secondary">
 										<span aria-hidden="true">└</span>
-										<span class="text-decoration-line-through" data-testid="rejected-value"
+										<span class="text-decoration-line-through text-nowrap" data-testid="rejected-value"
 											  th:text="|${old.value.toPlainString()} ${old.unit}|">6.2 pH</span>
 										<span th:if="${old.attemptNo != null and old.attemptNo > 1}"
 											  th:text="|(Lần ${old.attemptNo})|">(Lần 2)</span>
@@ -243,11 +251,11 @@
 				</div>
 				<div class="card-body">
 					<div class="table-responsive">
-						<table class="table table-sm align-middle mb-0" aria-labelledby="historyTitle">
+						<table class="table table-sm align-middle mb-0 lt-log" aria-labelledby="historyTitle">
 							<tbody data-testid="history">
 							<tr th:each="h : ${history}">
 								<td class="small text-body-secondary text-nowrap">
-									<span th:text="${@fmt.dateTimeSeconds(h.changedAt)}"></span>
+									<span class="lt-num" th:text="${@fmt.dateTimeSeconds(h.changedAt)}"></span>
 									· <strong class="text-body" th:text="${h.changedBy}"></strong>
 								</td>
 								<td>
@@ -282,11 +290,11 @@
 				</div>
 				<div class="card-body">
 					<div class="table-responsive">
-						<table class="table table-sm align-middle mb-0" aria-labelledby="resultAuditTitle">
+						<table class="table table-sm align-middle mb-0 lt-log" aria-labelledby="resultAuditTitle">
 							<tbody data-testid="audit">
 							<tr th:each="a : ${resultAudit}">
 								<td class="small text-body-secondary text-nowrap">
-									<span th:text="${@fmt.dateTimeSeconds(a.actedAt)}"></span>
+									<span class="lt-num" th:text="${@fmt.dateTimeSeconds(a.actedAt)}"></span>
 									· <strong class="text-body" th:text="${a.actor}"></strong>
 								</td>
 								<td th:text="${a.action.label}"></td>

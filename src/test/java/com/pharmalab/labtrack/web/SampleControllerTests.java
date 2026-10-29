@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,12 +61,14 @@ import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusHistory;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.TestParameter;
 import com.pharmalab.labtrack.domain.TestResult;
 import com.pharmalab.labtrack.domain.UserRole;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.security.WithAppUser;
 import com.pharmalab.labtrack.service.BusinessException;
+import com.pharmalab.labtrack.service.CsvFile;
 import com.pharmalab.labtrack.service.InvalidStatusTransitionException;
 import com.pharmalab.labtrack.service.LabSampleService;
 import com.pharmalab.labtrack.service.NewResult;
@@ -104,6 +108,7 @@ class SampleControllerTests {
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
 		sample.setPriority(SamplePriority.NORMAL);
+		sample.setStorageCondition(StorageCondition.ROOM_TEMPERATURE);
 		sample.setStatus(status);
 		sample.setReceivedAt(OffsetDateTime.parse("2026-10-07T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse("2026-10-14"));
@@ -396,6 +401,150 @@ class SampleControllerTests {
 		String detail = detailPage();
 		assertThat(detail).contains("<dt class=\"col-sm-5\">Mức ưu tiên</dt>");
 		assertThat(tagContaining(detail, ">Khẩn<")).contains("badge").contains("text-bg-warning");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR18-05 Form đăng ký có select Điều kiện bảo quản đủ 3 lựa chọn kèm khoảng nhiệt độ; Nhiệt độ phòng được chọn sẵn")
+	void registrationFormPreselectsRoomTemperature() throws Exception {
+		when(sampleService.newSampleDefaults()).thenReturn(new NewSample(null, null, null, SamplePriority.NORMAL,
+				StorageCondition.ROOM_TEMPERATURE, LocalDateTime.parse("2026-10-09T10:00"), LocalDate.parse("2026-10-16")));
+
+		String html = mockMvc.perform(get("/samples/new"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(html).contains("<label for=\"storageCondition\" class=\"form-label\">Điều kiện bảo quản</label>")
+			.contains(">Nhiệt độ phòng (15–30 °C)</option>")
+			.contains(">Mát (2–8 °C)</option>")
+			.contains(">Đông lạnh (≤ −20 °C)</option>");
+		assertThat(tagContaining(html, "value=\"ROOM_TEMPERATURE\"")).contains("selected");
+		assertThat(tagContaining(html, "value=\"COOL\"")).doesNotContain("selected");
+		assertThat(tagContaining(html, "value=\"FROZEN\"")).doesNotContain("selected");
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR18-06 Gửi form đăng ký chọn Đông lạnh: tầng nghiệp vụ nhận đúng điều kiện bảo quản Đông lạnh")
+	void registrationPassesChosenStorageConditionToService() throws Exception {
+		when(sampleService.register(any(), eq("tiepnhan"))).thenReturn(sampleIn(SampleStatus.RECEIVED));
+
+		mockMvc.perform(registration("NORMAL").param("storageCondition", "FROZEN"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples/42"));
+
+		ArgumentCaptor<NewSample> sent = ArgumentCaptor.forClass(NewSample.class);
+		verify(sampleService).register(sent.capture(), eq("tiepnhan"));
+		assertThat(sent.getValue().storageCondition()).isEqualTo(StorageCondition.FROZEN);
+	}
+
+	@Test
+	@WithAppUser(username = "tiepnhan", role = RECEPTIONIST)
+	@DisplayName("TC-BR18-07 Request gửi điều kiện bảo quản lạ (FRIDGE): hiện lại form với lỗi \"Vui lòng chọn điều kiện bảo quản\", không gọi service")
+	void unknownStorageConditionIsRejectedByForm() throws Exception {
+		mockMvc.perform(registration("NORMAL").param("storageCondition", "FRIDGE"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("samples/form"))
+			.andExpect(model().attributeHasFieldErrors("sampleForm", "storageCondition"))
+			.andExpect(content().string(containsString("Vui lòng chọn điều kiện bảo quản")));
+
+		verifyNoInteractions(sampleService);
+	}
+
+	@Test
+	@DisplayName("TC-BR18-08 Trang chi tiết có dòng Bảo quản với nhãn kèm khoảng nhiệt độ")
+	void detailShowsStorageCondition() throws Exception {
+		LabSample sample = sampleIn(SampleStatus.RECEIVED);
+		sample.setStorageCondition(StorageCondition.COOL);
+		when(sampleService.findById(SAMPLE_ID)).thenReturn(Optional.of(sample));
+
+		assertThat(detailPage()).contains("<dt class=\"col-sm-5\">Bảo quản</dt>")
+			.contains("<dd class=\"col-sm-7\" data-testid=\"storage-condition\">Mát (2–8 °C)</dd>");
+	}
+
+	private static final String EXPORT_LIMIT_MESSAGE = "Bộ lọc khớp hơn 10.000 mẫu. Hãy lọc hẹp hơn để xuất CSV.";
+
+	private byte[] givenExport() {
+		byte[] content = "﻿Mã mẫu\r\n".getBytes(StandardCharsets.UTF_8);
+		when(sampleService.exportCsv(any())).thenReturn(new CsvFile("labtrack-mau-2026-10-29.csv", content));
+		return content;
+	}
+
+	@Test
+	@DisplayName("TC-BR16-09 Xuất CSV trả file tải về: text/csv;charset=UTF-8, Content-Disposition attachment với tên service đặt, thân đúng các byte service trả")
+	void exportReturnsCsvAttachment() throws Exception {
+		byte[] content = givenExport();
+
+		mockMvc.perform(get("/samples/export.csv"))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
+			.andExpect(header().string("Content-Disposition", "attachment; filename=\"labtrack-mau-2026-10-29.csv\""))
+			.andExpect(content().bytes(content));
+	}
+
+	@Test
+	@DisplayName("TC-BR16-10 Xuất CSV đọc bộ lọc từ URL như danh sách (từ khóa cắt khoảng trắng, đủ 4 điều kiện lọc) và bỏ qua số trang")
+	void exportReadsSameFilterAsListIgnoringPage() throws Exception {
+		givenExport();
+
+		mockMvc.perform(get("/samples/export.csv")
+				.param("q", "  PA-26%  ")
+				.param("status", "IN_TESTING")
+				.param("priority", "URGENT")
+				.param("sampleType", "RAW_MATERIAL")
+				.param("overdueOnly", "true")
+				.param("page", "3"))
+			.andExpect(status().isOk());
+
+		verify(sampleService).exportCsv(
+				new SampleFilter("PA-26%", SampleStatus.IN_TESTING, SamplePriority.URGENT, SampleType.RAW_MATERIAL, true));
+	}
+
+	@Test
+	@DisplayName("TC-BR16-11 Bộ lọc khớp hơn 10.000 mẫu: không có file, về danh sách với thông báo lỗi nguyên văn")
+	void exportOverLimitRedirectsWithError() throws Exception {
+		when(sampleService.exportCsv(any())).thenThrow(new BusinessException("EXPORT_LIMIT", null, EXPORT_LIMIT_MESSAGE));
+
+		mockMvc.perform(get("/samples/export.csv").param("priority", "URGENT"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/samples"))
+			.andExpect(flash().attribute("error", EXPORT_LIMIT_MESSAGE));
+	}
+
+	@Test
+	@DisplayName("TC-BR16-12 Danh sách: link Xuất CSV mang bộ lọc đang xem, không mang số trang; đúng 10.000 mẫu vẫn xuất được; hơn 10.000 thì nút bị vô hiệu kèm lý do")
+	void exportButtonCarriesFilterAndIsDisabledOverLimit() throws Exception {
+		when(sampleService.search(any(), anyInt()))
+			.thenReturn(new SamplePage(List.of(sampleIn(SampleStatus.RECEIVED)), 2, 20, 10_000));
+
+		String html = mockMvc.perform(get("/samples")
+				.param("q", "C+ 50%")
+				.param("priority", "URGENT")
+				.param("overdueOnly", "true")
+				.param("page", "2"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		assertThat(tagContaining(html, ">Xuất CSV</a>"))
+			.contains("href=\"/samples/export.csv?q=C%2B%2050%25&amp;priority=URGENT&amp;overdueOnly=true\"");
+		assertThat(html).doesNotContain("id=\"exportBlocked\"").doesNotContain(EXPORT_LIMIT_MESSAGE);
+
+		when(sampleService.search(any(), anyInt()))
+			.thenReturn(new SamplePage(List.of(sampleIn(SampleStatus.RECEIVED)), 1, 20, 10_001));
+
+		String tooMany = mockMvc.perform(get("/samples"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		assertThat(tagContaining(tooMany, ">Xuất CSV</button>")).contains("disabled")
+			.contains("aria-describedby=\"exportBlocked\"");
+		// So cả href=: comment HTML của template cũng nhắc tới đường dẫn này.
+		assertThat(tooMany).doesNotContain("href=\"/samples/export.csv").contains(EXPORT_LIMIT_MESSAGE);
+		assertThat(tagContaining(tooMany, EXPORT_LIMIT_MESSAGE)).contains("id=\"exportBlocked\"");
 	}
 
 	@Test

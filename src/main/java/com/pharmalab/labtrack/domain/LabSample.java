@@ -18,6 +18,9 @@ public class LabSample {
 
 	private SamplePriority priority;
 
+	/** BR-18. */
+	private StorageCondition storageCondition;
+
 	private SampleStatus status;
 
 	private OffsetDateTime receivedAt;
@@ -106,6 +109,14 @@ public class LabSample {
 
 	public void setPriority(SamplePriority priority) {
 		this.priority = priority;
+	}
+
+	public StorageCondition getStorageCondition() {
+		return storageCondition;
+	}
+
+	public void setStorageCondition(StorageCondition storageCondition) {
+		this.storageCondition = storageCondition;
 	}
 
 	public SampleStatus getStatus() {
