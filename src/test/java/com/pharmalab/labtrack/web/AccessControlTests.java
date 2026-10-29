@@ -24,7 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.hamcrest.Matcher;
@@ -50,6 +52,7 @@ import com.pharmalab.labtrack.domain.UserRole;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.security.WithAppUser;
 import com.pharmalab.labtrack.service.LabSampleService;
+import com.pharmalab.labtrack.service.Overview;
 import com.pharmalab.labtrack.service.SamplePage;
 import com.pharmalab.labtrack.service.TestResultService;
 
@@ -61,7 +64,7 @@ import com.pharmalab.labtrack.service.TestResultService;
  * {@link SecurityConfig}; thiếu nó thì test chạy trên cấu hình bảo mật mặc định của Boot, nơi mọi
  * người đã đăng nhập đều qua được.
  */
-@WebMvcTest({ SampleController.class, LoginController.class })
+@WebMvcTest({ SampleController.class, LoginController.class, DashboardController.class })
 @Import(SecurityConfig.class)
 class AccessControlTests {
 
@@ -103,6 +106,15 @@ class AccessControlTests {
 	/** Danh sách mẫu rỗng: service là mock, chưa stub thì {@code search} trả null và trang danh sách lỗi. */
 	private void givenNoSamples() {
 		when(sampleService.search(any(), anyInt())).thenReturn(new SamplePage(List.of(), 1, 20, 0));
+	}
+
+	/** Tổng quan không có mẫu nào: chưa stub thì {@code overview} trả null và trang Tổng quan lỗi. */
+	private void givenEmptyOverview() {
+		Map<SampleStatus, Long> counts = new EnumMap<>(SampleStatus.class);
+		for (SampleStatus status : SampleStatus.values()) {
+			counts.put(status, 0L);
+		}
+		when(sampleService.overview()).thenReturn(new Overview(counts, 0, 0, null, List.of()));
 	}
 
 	private static Matcher<String> presentIf(boolean expected, String text) {
@@ -328,6 +340,28 @@ class AccessControlTests {
 		mockMvc.perform(post("/samples/{id}/conclude", SAMPLE_ID)
 				.with(user(principal("duyet", "Hoàng Văn Duy", UserRole.REVIEWER))))
 			.andExpect(status().isForbidden());
+
+		verifyNoInteractions(sampleService);
+	}
+
+	@ParameterizedTest(name = "[{index}] {0}")
+	@DisplayName("TC-BR12-20 Trang Tổng quan / mở cho cả 4 vai trò đã đăng nhập (BR-15, ma trận mục 9)")
+	@CsvSource({ "RECEPTIONIST", "ANALYST", "REVIEWER", "MANAGER" })
+	void overviewOpenForEveryRole(UserRole role) throws Exception {
+		givenEmptyOverview();
+
+		mockMvc.perform(get("/").with(user(principal("nguoidung", "Người dùng thử", role))))
+			.andExpect(status().isOk())
+			.andExpect(view().name("dashboard"))
+			.andExpect(content().string(containsString("Tổng quan")));
+	}
+
+	@Test
+	@DisplayName("TC-BR12-21 Chưa đăng nhập: mở trang Tổng quan / thì bị chuyển tới trang đăng nhập")
+	void anonymousOverviewIsRedirectedToLogin() throws Exception {
+		mockMvc.perform(get("/"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string(HttpHeaders.LOCATION, endsWith("/login")));
 
 		verifyNoInteractions(sampleService);
 	}

@@ -35,6 +35,9 @@ public class SecurityConfig {
 	 * Duyệt/từ chối kết quả chỉ dành cho {@code REVIEWER} (BR-08, SPEC-004 R9). {@code *} chỉ khớp một
 	 * đoạn đường dẫn, nên {@code /samples/*}{@code /results} không khớp {@code /samples/1/results/2/approve}
 	 * và hai luật không chồng nhau. Kết luận mẫu cũng chỉ dành cho {@code REVIEWER} (BR-11, ma trận mục 9).
+	 * <p>
+	 * Trang chủ {@code /} là trang Tổng quan, mở cho mọi vai trò đã đăng nhập (BR-15, ma trận mục 9), và là nơi tới
+	 * sau khi đăng nhập. Người bị chuyển tới trang đăng nhập khi đang mở một URL khác vẫn được đưa về URL đó.
 	 */
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -52,10 +55,11 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.POST, "/samples/*/results/*/approve", "/samples/*/results/*/reject")
 				.hasRole(REVIEWER.name())
 				.requestMatchers(HttpMethod.POST, "/samples/*/conclude").hasRole(REVIEWER.name())
+				.requestMatchers(HttpMethod.GET, "/").authenticated()
 				.requestMatchers(HttpMethod.GET, "/samples", "/samples/*").authenticated()
 				.anyRequest().denyAll())
 			// /login đã permitAll ở luật đầu, nên không gọi permitAll() của formLogin nữa.
-			.formLogin(form -> form.loginPage("/login").defaultSuccessUrl("/samples"))
+			.formLogin(form -> form.loginPage("/login").defaultSuccessUrl("/"))
 			.logout(logout -> logout.logoutSuccessUrl("/login?logout"));
 		return http.build();
 	}

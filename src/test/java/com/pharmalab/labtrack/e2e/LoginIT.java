@@ -34,16 +34,16 @@ class LoginIT extends E2ETestBase {
 	}
 
 	@Test
-	@DisplayName("TC-E2E-02 Đăng nhập đúng: vào danh sách mẫu, navbar có họ tên và vai trò; đăng xuất xong phải đăng nhập lại (BR-12)")
+	@DisplayName("TC-E2E-02 Đăng nhập đúng: vào trang Tổng quan, navbar có họ tên và vai trò; đăng xuất xong phải đăng nhập lại (BR-12, BR-15)")
 	void signInShowsUserThenSignOutEndsSession() {
 		login("tiepnhan");
 
-		assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Danh sách mẫu"))).isVisible();
+		assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Tổng quan"))).isVisible();
 		Locator navbar = page.getByRole(AriaRole.NAVIGATION);
 		assertThat(navbar).containsText("Trần Thị Thu");
 		assertThat(navbar).containsText("Tiếp nhận mẫu");
 		assertThat(navbar.getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Đăng ký mẫu"))).isVisible();
-		assertThat(page.getByRole(AriaRole.MAIN)).containsText("Chưa có mẫu nào.");
+		assertThat(page.getByRole(AriaRole.MAIN)).containsText("Không có mẫu cần chú ý.");
 		screenshot("01-da-dang-nhap");
 
 		logout();

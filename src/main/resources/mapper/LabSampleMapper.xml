@@ -93,6 +93,43 @@
 	</select>
 
 	<!--
+		BR-15: GROUP BY chứ không đặt một cột FILTER cho mỗi trạng thái, để câu này không ghi tên hằng SampleStatus.
+		Trạng thái không có mẫu nào thì không có dòng; LabSampleService.overview lấp 0.
+	-->
+	<select id="countByStatus" resultType="StatusCount">
+		SELECT status, count(*) AS count
+		FROM lab_sample
+		GROUP BY status
+	</select>
+
+	<!--
+		BR-14, BR-15: ba số của trang Tổng quan trong một lần quét bảng. Điều kiện quá hạn giống searchWhere. Chỉ mẫu
+		Hoàn thành mới có completed_at (ck_lab_sample_completed, V5), nên lọc theo completed_at là đủ. TAT tính từ
+		received_at, tức Thời điểm nhận (câu hỏi 3 docs/cau-hoi-lam-ro.md), tới completed_at, đơn vị giây. avg của tập
+		rỗng là NULL và được giữ nguyên, để trang hiện "—" chứ không hiện 0. since là 00:00 giờ VN của ngày đầu cửa sổ,
+		do service tính từ Clock.
+	-->
+	<select id="overviewStats" resultType="OverviewStats">
+		SELECT count(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND due_date &lt; #{today}) AS overdue_count,
+		       count(*) FILTER (WHERE completed_at >= #{since}) AS completed_count,
+		       avg(EXTRACT(EPOCH FROM completed_at - received_at)) FILTER (WHERE completed_at >= #{since}) AS avg_tat_seconds
+		FROM lab_sample
+	</select>
+
+	<!--
+		BR-15: mẫu chưa kết thúc mà Khẩn hoặc quá hạn (điều kiện quá hạn như searchWhere). Hạn trả sớm nhất trước, vì đó
+		là mẫu đã hoặc sắp trễ nhất. Cùng hạn thì Khẩn trước, rồi nhận sớm trước; id là khóa cuối để thứ tự ổn định.
+	-->
+	<select id="findAttention" resultType="LabSample">
+		SELECT <include refid="columns"/>
+		FROM lab_sample
+		WHERE status NOT IN ('COMPLETED', 'CANCELLED')
+		  AND (priority = 'URGENT' OR due_date &lt; #{today})
+		ORDER BY due_date, CASE priority WHEN 'URGENT' THEN 0 ELSE 1 END, received_at, id
+		LIMIT #{limit}
+	</select>
+
+	<!--
 		BR-03: điều kiện status = trạng thái cũ làm cho câu lệnh chỉ khớp khi mẫu chưa bị ai đổi
 		trạng thái. Người bấm sau cập nhật 0 dòng, tầng nghiệp vụ biến nó thành CONCURRENT_UPDATE.
 	-->

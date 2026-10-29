@@ -134,8 +134,9 @@ abstract class E2ETestBase {
 	protected void login(String username) {
 		page.navigate(url("/login"));
 		submitLogin(username, PASSWORD);
-		// Đăng nhập hỏng thì báo ngay ở đây, thay vì để bước sau của kịch bản báo lỗi khó hiểu.
-		assertThat(page).hasURL(url("/samples"));
+		// Đăng nhập hỏng thì báo ngay ở đây, thay vì để bước sau của kịch bản báo lỗi khó hiểu. Đăng nhập xong vào
+		// trang Tổng quan (BR-15).
+		assertThat(page).hasURL(url("/"));
 	}
 
 	/** Điền và gửi form đăng nhập đang mở, không kiểm kết quả: dùng cho kịch bản đăng nhập sai. */
@@ -158,6 +159,10 @@ abstract class E2ETestBase {
 
 	/** Từ trang danh sách, bấm mã mẫu như người dùng để mở trang chi tiết. */
 	protected void openSample(String code) {
+		// Mở từ danh sách như người dùng: trang Tổng quan chỉ có link tới mẫu Khẩn hoặc quá hạn.
+		page.getByRole(AriaRole.NAVIGATION)
+			.getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Danh sách mẫu"))
+			.click();
 		page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(code).setExact(true)).click();
 		assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Mẫu " + code))).isVisible();
 	}

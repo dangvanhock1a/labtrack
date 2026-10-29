@@ -10,12 +10,13 @@
 
 <nav th:fragment="navbar" class="navbar navbar-expand bg-primary mb-4" data-bs-theme="dark">
 	<div class="container flex-wrap">
-		<a class="navbar-brand" th:href="@{/samples}">LabTrack</a>
+		<a class="navbar-brand" th:href="@{/}">LabTrack</a>
 		<!-- Trang đăng nhập và trang lỗi cũng dùng navbar này; khi chưa đăng nhập, principal là chuỗi
 			 "anonymousUser", không có fullName. Vì vậy mọi chỗ đọc principal phải nằm trong khối này.
 			 BR-12: ẩn link chỉ cho dễ dùng, quyền thật do SecurityConfig chặn. -->
 		<th:block sec:authorize="isAuthenticated()">
 			<div class="navbar-nav me-auto">
+				<a class="nav-link" th:href="@{/}">Tổng quan</a>
 				<a class="nav-link" th:href="@{/samples}">Danh sách mẫu</a>
 				<a class="nav-link" th:href="@{/samples/new}" sec:authorize="hasRole('RECEPTIONIST')">Đăng ký mẫu</a>
 			</div>

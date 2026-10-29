@@ -44,7 +44,7 @@ class SampleLifecycleIT extends E2ETestBase {
 		Locator audit = page.getByTestId("audit").getByRole(AriaRole.ROW);
 
 		login("tiepnhan");
-		page.getByRole(AriaRole.MAIN)
+		page.getByRole(AriaRole.NAVIGATION)
 			.getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Đăng ký mẫu"))
 			.click();
 		Locator receivedAt = page.getByLabel("Thời điểm nhận");
