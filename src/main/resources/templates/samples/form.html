@@ -44,6 +44,15 @@
 			<div class="invalid-feedback" th:errors="*{priority}"></div>
 		</div>
 
+		<!-- BR-18: như Mức ưu tiên, không có lựa chọn trống; form mới đã chọn sẵn Nhiệt độ phòng. -->
+		<div class="mb-3">
+			<label for="storageCondition" class="form-label">Điều kiện bảo quản</label>
+			<select th:field="*{storageCondition}" class="form-select" th:errorclass="is-invalid">
+				<option th:each="c : ${storageConditions}" th:value="${c}" th:text="${c.label}"></option>
+			</select>
+			<div class="invalid-feedback" th:errors="*{storageCondition}"></div>
+		</div>
+
 		<div class="row">
 			<div class="col-sm-6 mb-3">
 				<label for="receivedAt" class="form-label">Thời điểm nhận</label>

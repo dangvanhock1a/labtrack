@@ -23,6 +23,7 @@ import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.StatusChange;
 import com.pharmalab.labtrack.domain.StatusHistory;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 import com.pharmalab.labtrack.persistence.StatusHistoryMapper;
@@ -35,6 +36,12 @@ public class LabSampleService {
 
 	/** BR-13. Trùng {@code DEFAULT} của cột {@code lab_sample.priority} (V6), giá trị mà mẫu có trước V6 nhận. */
 	static final SamplePriority DEFAULT_PRIORITY = SamplePriority.NORMAL;
+
+	/**
+	 * BR-18. Trùng {@code DEFAULT} của cột {@code lab_sample.storage_condition} (V7), giá trị mà mẫu có trước V7
+	 * nhận.
+	 */
+	static final StorageCondition DEFAULT_STORAGE_CONDITION = StorageCondition.ROOM_TEMPERATURE;
 
 	static final int MIN_REASON_LENGTH = 5;
 
@@ -54,6 +61,11 @@ public class LabSampleService {
 
 	private static final BigDecimal SECONDS_PER_HOUR = BigDecimal.valueOf(3600);
 
+	/** BR-16: số dòng tối đa của file CSV. Public để trang danh sách tắt nút Xuất CSV khi bộ lọc khớp nhiều hơn. */
+	public static final int EXPORT_LIMIT = 10_000;
+
+	static final String EXPORT_LIMIT_MESSAGE = "Bộ lọc khớp hơn 10.000 mẫu. Hãy lọc hẹp hơn để xuất CSV.";
+
 	private final LabSampleMapper sampleMapper;
 
 	private final StatusHistoryMapper historyMapper;
@@ -67,6 +79,8 @@ public class LabSampleService {
 	/** Số mẫu mỗi trang danh sách (BR-13: 20), đọc từ {@code labtrack.page-size}. */
 	private final int pageSize;
 
+	private final SampleCsv csv;
+
 	public LabSampleService(LabSampleMapper sampleMapper, StatusHistoryMapper historyMapper,
 			TestResultMapper resultMapper, SampleCodeGenerator codeGenerator, Clock clock,
 			@Value("${labtrack.page-size}") int pageSize) {
@@ -76,12 +90,17 @@ public class LabSampleService {
 		this.codeGenerator = codeGenerator;
 		this.clock = clock;
 		this.pageSize = pageSize;
+		this.csv = new SampleCsv(clock.getZone());
 	}
 
-	/** Giá trị điền sẵn cho form đăng ký: ưu tiên Bình thường, nhận lúc này, hạn trả sau 7 ngày (BR-02, BR-13). */
+	/**
+	 * Giá trị điền sẵn cho form đăng ký: ưu tiên Bình thường, bảo quản Nhiệt độ phòng, nhận lúc này, hạn trả sau 7
+	 * ngày (BR-02, BR-13, BR-18).
+	 */
 	public NewSample newSampleDefaults() {
 		LocalDateTime now = now();
-		return new NewSample(null, null, null, DEFAULT_PRIORITY, now, now.toLocalDate().plusDays(DEFAULT_DUE_DAYS));
+		return new NewSample(null, null, null, DEFAULT_PRIORITY, DEFAULT_STORAGE_CONDITION, now,
+				now.toLocalDate().plusDays(DEFAULT_DUE_DAYS));
 	}
 
 	/**
@@ -111,6 +130,8 @@ public class LabSampleService {
 		sample.setBatchNo(newSample.batchNo());
 		sample.setSampleType(newSample.sampleType());
 		sample.setPriority(newSample.priority() != null ? newSample.priority() : DEFAULT_PRIORITY);
+		sample.setStorageCondition(newSample.storageCondition() != null ? newSample.storageCondition()
+				: DEFAULT_STORAGE_CONDITION);
 		sample.setStatus(SampleStatus.RECEIVED);
 		sample.setReceivedAt(receivedAt);
 		sample.setDueDate(dueDate);
@@ -147,6 +168,23 @@ public class LabSampleService {
 			return null;
 		}
 		return "%" + keyword.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+	}
+
+	/**
+	 * File CSV mọi mẫu khớp bộ lọc, không chỉ một trang (BR-16). Gọi lại câu {@code search} của danh sách để file có
+	 * đúng bộ lọc và đúng thứ tự người dùng đang xem. Lấy dư một dòng thay vì đếm trước: một câu SQL, và không có kẽ hở
+	 * để mẫu mới đăng ký giữa câu đếm và câu lấy làm file bị cắt mà không ai biết. Vượt {@link #EXPORT_LIMIT} thì từ
+	 * chối xuất chứ không cắt bớt (câu 10 {@code docs/cau-hoi-lam-ro.md}): file thiếu dòng trông vẫn như đủ. Tên file
+	 * và cờ quá hạn theo cùng ngày "hôm nay" của {@link Clock}.
+	 */
+	public CsvFile exportCsv(SampleFilter filter) {
+		LocalDate today = LocalDate.now(clock);
+		List<LabSample> samples = sampleMapper.search(filter, likePattern(filter.keyword()), today, EXPORT_LIMIT + 1, 0);
+		if (samples.size() > EXPORT_LIMIT) {
+			throw new BusinessException("EXPORT_LIMIT", null, EXPORT_LIMIT_MESSAGE);
+		}
+		samples.forEach(sample -> markOverdue(toClockZone(sample), today));
+		return new CsvFile("labtrack-mau-" + today + ".csv", csv.write(samples));
 	}
 
 	/**

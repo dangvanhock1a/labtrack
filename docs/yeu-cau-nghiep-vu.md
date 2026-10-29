@@ -259,8 +259,8 @@ Bắt buộc, một trong: Nhiệt độ phòng (15–30 °C, mặc định), M�
 | I-8 | 10 | Kết luận mẫu (LT-102) | V5 | BR-11 |
 | I-9 | 11 | Mức ưu tiên, tìm kiếm, lọc, phân trang | V6 | BR-13 |
 | I-10 | 12 | Cảnh báo quá hạn | | BR-14 |
-| I-11 | 13 | Ghi chú mẫu | V7 | BR-17 |
-| I-12 | 15 | Xuất CSV ∥ điều kiện bảo quản | V8 | BR-16, BR-18 |
+| I-11 | 13 | Ghi chú mẫu | V8 | BR-17 |
+| I-12 | 15 | Xuất CSV ∥ điều kiện bảo quản | V7 | BR-16, BR-18 |
 | I-13 | 16 | Tổng quan và TAT | | BR-15 |
 | I-14 | 17 | Tối ưu danh sách, index khóa ngoại | V9 | NFR-01 |
 | I-15 | 18 | Chất lượng, bảo mật, tài liệu | | NFR-02, NFR-05 |

@@ -44,12 +44,22 @@ public class SampleFilterForm {
 		return q != null || status != null || priority != null || sampleType != null || overdueOnly;
 	}
 
-	/**
-	 * Đường dẫn tới trang {@code page} với cùng bộ lọc, chỉ ghi tham số có giá trị. Từ khóa được percent-encode toàn
-	 * bộ, kể cả {@code +} và {@code %}: để nguyên {@code +} thì máy chủ đọc thành dấu cách và "C+" thành "C ".
-	 */
+	/** Đường dẫn tới trang {@code page} với cùng bộ lọc. */
 	public String pageUrl(int page) {
-		UriComponentsBuilder url = UriComponentsBuilder.fromPath("/samples");
+		return filterUrl("/samples").queryParam("page", page).build(true).toUriString();
+	}
+
+	/** Đường dẫn xuất CSV với cùng bộ lọc (BR-16). Không mang số trang: file chứa mọi trang. */
+	public String exportUrl() {
+		return filterUrl("/samples/export.csv").build(true).toUriString();
+	}
+
+	/**
+	 * {@code path} kèm các tham số lọc có giá trị. Từ khóa được percent-encode toàn bộ, kể cả {@code +} và {@code %}:
+	 * để nguyên {@code +} thì máy chủ đọc thành dấu cách và "C+" thành "C ".
+	 */
+	private UriComponentsBuilder filterUrl(String path) {
+		UriComponentsBuilder url = UriComponentsBuilder.fromPath(path);
 		if (q != null) {
 			url.queryParam("q", UriUtils.encode(q, StandardCharsets.UTF_8));
 		}
@@ -65,7 +75,7 @@ public class SampleFilterForm {
 		if (overdueOnly) {
 			url.queryParam("overdueOnly", true);
 		}
-		return url.queryParam("page", page).build(true).toUriString();
+		return url;
 	}
 
 	public String getQ() {

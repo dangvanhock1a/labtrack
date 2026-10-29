@@ -26,6 +26,7 @@ import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.StorageCondition;
 import com.pharmalab.labtrack.domain.Verdict;
 import com.pharmalab.labtrack.persistence.LabSampleMapper;
 
@@ -71,6 +72,7 @@ class OverdueSearchIntegrationTests {
 		sample.setBatchNo("PA-2601");
 		sample.setSampleType(SampleType.FINISHED_PRODUCT);
 		sample.setPriority(SamplePriority.NORMAL);
+		sample.setStorageCondition(StorageCondition.ROOM_TEMPERATURE);
 		sample.setStatus(completed ? SampleStatus.IN_TESTING : status);
 		sample.setReceivedAt(OffsetDateTime.parse("2000-03-01T09:00+07:00"));
 		sample.setDueDate(LocalDate.parse(dueDate));

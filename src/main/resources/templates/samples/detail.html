@@ -89,6 +89,9 @@
 						<dt class="col-sm-5">Mức ưu tiên</dt>
 						<dd class="col-sm-7"><span th:replace="~{fragments/layout :: priorityBadge(${sample.priority})}"></span></dd>
 
+						<dt class="col-sm-5">Bảo quản</dt>
+						<dd class="col-sm-7" th:text="${sample.storageCondition.label}"></dd>
+
 						<dt class="col-sm-5">Nhận lúc</dt>
 						<dd class="col-sm-7" th:text="${@fmt.dateTime(sample.receivedAt)}"></dd>
 
