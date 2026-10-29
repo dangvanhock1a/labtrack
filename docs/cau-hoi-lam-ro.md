@@ -12,7 +12,7 @@ Ký hiệu loại test:
 
 - **U**: unit test (JUnit + Mockito)
 - **W**: test tầng web (MockMvc + spring-security-test)
-- **I**: test tích hợp với PostgreSQL thật (Testcontainers)
+- **I**: test tích hợp với PostgreSQL thật (CSDL `labtrack_test`)
 - **DB**: ghi thẳng bằng SQL để kiểm tra ràng buộc
 - **CC**: chạy đồng thời
 - **TZ**: múi giờ (JVM chạy UTC, `Clock` cố định)

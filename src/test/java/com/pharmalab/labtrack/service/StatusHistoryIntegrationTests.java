@@ -11,12 +11,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SampleStatus;
@@ -25,7 +23,6 @@ import com.pharmalab.labtrack.domain.StatusHistory;
 
 /** Lịch sử trạng thái (BR-04) trên PostgreSQL thật: số dòng, nội dung dòng và rollback cùng transaction. */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
 class StatusHistoryIntegrationTests {
 

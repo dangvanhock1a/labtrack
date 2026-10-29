@@ -2,7 +2,7 @@
 name: flyway-migration
 description: >-
   Tạo migration Flyway mới cho PostgreSQL (V<n+1>__*.sql) rồi cập nhật cùng lúc domain, mapper XML MyBatis và
-  test tích hợp Testcontainers (ghi-đọc + ràng buộc). Dùng khi task đổi cấu trúc CSDL hoặc cần lưu dữ liệu mà bảng
+  test tích hợp trên PostgreSQL thật (ghi-đọc + ràng buộc). Dùng khi task đổi cấu trúc CSDL hoặc cần lưu dữ liệu mà bảng
   chưa có chỗ chứa: người dùng nói "đổi schema", "thêm cột", "thêm bảng", "thêm trường", "migration",
   "lưu thêm thông tin","cần lưu thêm", "thêm thuộc tính cho", hoặc BR trong kế hoạch increment có kèm số migration. Không dùng cho dữ liệu demo db/devdata.
 argument-hint: "<mô tả thay đổi schema>"
@@ -25,7 +25,7 @@ Thay đổi cần làm: $ARGUMENTS
 2. **SQL** trong `src/main/resources/db/migration/`:
    - Dòng đầu `-- BR-xx: <lý do>` như V5; chú thích nói vì sao, không tả lại câu lệnh.
    - Cột `NOT NULL` thêm vào bảng đã có phải kèm `DEFAULT` hằng số. Thiếu thì lỗi trên CSDL đã có dòng, dù test
-     trên CSDL rỗng của Testcontainers vẫn qua.
+     chạy lúc bảng rỗng vẫn qua.
    - Enum: `VARCHAR(n)` + `CONSTRAINT ck_<bảng>_<ý nghĩa> CHECK (cot IN ('HANG_A', 'HANG_B'))`, giá trị là tên hằng
      Java nguyên văn. Không dùng `CREATE TYPE … AS ENUM`.
    - Mọi ràng buộc tự đặt tên `ck_`/`uq_`/`fk_<bảng>_<ý nghĩa>`. Đổi ràng buộc = `DROP CONSTRAINT` + `ADD` đúng tên cũ.
@@ -39,13 +39,12 @@ Thay đổi cần làm: $ARGUMENTS
      thiếu thì driver PostgreSQL không đoán được kiểu khi giá trị là null.
    - Chỉ `#{}`; không `@Select`/`@Insert`… trên interface.
 5. **Test tích hợp** ở `src/test/java/com/pharmalab/labtrack/persistence/`: `@SpringBootTest`
-   + `@Import(TestcontainersConfiguration.class)` + `@Transactional`, tên `*Tests` (không `*IT`),
+   + `@Transactional`, tên `*Tests` (không `*IT`),
    `@DisplayName("TC-BRxx-yy …")`. Bảng đã có lớp `*MapperTests`/`*ConstraintTests` thì thêm vào đó.
    - Ghi-đọc: ghi qua mapper hoặc service, đọc lại qua mapper, kiểm cột mới với giá trị thật và với null.
    - Ràng buộc: SQL ghi thẳng qua `JdbcTemplate`, mỗi câu vi phạm chạy trong savepoint, kiểm đúng tên ràng buộc
      trong lỗi; dùng lại cách `assertViolates` của `LabSampleConstraintTests`. Có cả một câu hợp lệ ghi được.
-6. **Chạy** `./mvnw -q test`. Không có Docker → lệnh profile `localdb` trong `CLAUDE.md` (CSDL `labtrack_test`,
-   không chạy lên CSDL dev). Báo cáo: file đã tạo/sửa, số test chạy/đỏ kèm output lỗi thật, các cảnh báo ở mục dưới.
+6. **Chạy** `./mvnw -q test` (CSDL `labtrack_test`, không chạy lên CSDL dev). Báo cáo: file đã tạo/sửa, số test chạy/đỏ kèm output lỗi thật, các cảnh báo ở mục dưới.
 
 ## Tự kiểm tra trước khi báo xong
 - Không sửa V cũ: `git status --short src/main/resources/db/migration` chỉ có file mới, và

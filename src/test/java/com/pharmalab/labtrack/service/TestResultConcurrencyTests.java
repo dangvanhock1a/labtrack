@@ -18,12 +18,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleStatus;
 import com.pharmalab.labtrack.domain.SampleType;
@@ -41,7 +39,6 @@ import com.pharmalab.labtrack.persistence.TestParameterMapper;
  * mở trong {@code finally}, để lỗi logic làm test đỏ chứ không làm treo cả bộ test.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 class TestResultConcurrencyTests {
 
 	private static final long TIMEOUT_SECONDS = 10;

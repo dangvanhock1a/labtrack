@@ -32,12 +32,12 @@ final class DbCleaner {
 	}
 
 	void clean() {
-		// Hỏi chính server đang kết nối thay vì đọc DB_URL: Testcontainers tự dựng URL, và DB_URL có thể chưa đặt.
-		// "test" là tên Testcontainers đặt mặc định; CSDL test dựng tay theo CLAUDE.md là labtrack_test.
+		// Hỏi chính server đang kết nối thay vì đọc TEST_DB_URL: biến có thể chưa đặt, và URL thật còn qua tầng
+		// cấu hình của Spring. CSDL test theo CLAUDE.md là labtrack_test.
 		String database = jdbcTemplate.queryForObject("SELECT current_database()", String.class);
-		if (!database.equals("test") && !database.endsWith("_test")) {
+		if (!database.endsWith("_test")) {
 			throw new IllegalStateException("Từ chối dọn CSDL \"" + database
-					+ "\": chỉ dọn CSDL tên \"test\" hoặc kết thúc bằng \"_test\"");
+					+ "\": chỉ dọn CSDL tên kết thúc bằng \"_test\"");
 		}
 		List<String> tables = jdbcTemplate.queryForList("""
 				SELECT quote_ident(tablename)

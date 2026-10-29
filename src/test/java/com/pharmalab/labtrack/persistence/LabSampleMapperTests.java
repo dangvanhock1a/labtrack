@@ -20,10 +20,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SamplePriority;
@@ -44,7 +42,6 @@ import com.pharmalab.labtrack.service.TestResultService;
  * tên sản phẩm và tìm theo chuỗi đó, để mẫu do test khác commit vào CSDL không lọt vào kết quả.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
 class LabSampleMapperTests {
 

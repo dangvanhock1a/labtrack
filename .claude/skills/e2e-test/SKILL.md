@@ -73,12 +73,11 @@ Helper của `E2ETestBase`:
 3. **Cập nhật bảng "Test hiện thực"**: `| TC-E2E-xx | `Lop.method` |`. `@DisplayName` mở đầu bằng đúng mã đó.
 4. **Chạy riêng lớp đó:** `./mvnw verify -Dit.test=<Lop>`. Chạy một method: `"-Dit.test=<Lop>#<method>"`.
    - `verify` chạy hết unit test (surefire) trước. Một unit test đỏ là dừng, E2E không chạy.
-   - Không có Docker thì dùng profile `localdb` trên `labtrack_test` như `CLAUDE.md`, không chạy lên CSDL dev. Trên
-     PowerShell, bọc nháy mọi `-D` có dấu chấm:
-     `$env:DB_URL='jdbc:postgresql://localhost:5433/labtrack_test'; ./mvnw verify "-Dspring.profiles.active=localdb" "-Dit.test=<Lop>"`.
-   - Máy không tải được trình duyệt của Playwright thì mỗi lớp treo khoảng 10 phút rồi báo `Timed out waiting for
-     browsers to install`. Gặp vậy thì dừng lệnh và chạy lại kèm `"-De2e.channel=msedge"` (Edge hoặc Chrome đã cài),
-     đừng chờ hết.
+   - Test chạy trên `labtrack_test` (đổi bằng `TEST_DB_URL`), không chạy lên CSDL dev. Trên PowerShell, bọc nháy
+     mọi `-D` có dấu chấm: `./mvnw verify "-Dit.test=<Lop>"`.
+   - Failsafe mặc định dùng Edge đã cài (`e2e.channel` trong `pom.xml`). Chạy từ IDE mà không đặt
+     `E2E_BROWSER_CHANNEL=msedge` thì Playwright tự tải Chromium: máy không tải được thì mỗi lớp treo khoảng 10 phút
+     rồi báo `Timed out waiting for browsers to install`. Gặp vậy thì dừng, đặt biến rồi chạy lại, đừng chờ hết.
 5. **Test đỏ: đọc ảnh trước khi sửa.** Chưa sửa dòng code nào cho tới khi xong bước c.
    a. Đọc thông báo lỗi trong `target/failsafe-reports/*.txt`: locator nào, mong đợi gì, nhận được gì.
    b. Mở bằng Read ảnh `target/e2e-screenshots/<Lop>-<method>-end.png` và ảnh đánh số cuối cùng đã chụp được (bước
@@ -99,9 +98,9 @@ Helper của `E2ETestBase`:
 | Chữ trên trang khác kịch bản vì code vừa đổi câu chữ hay `data-testid` | Đổi một nơi mà không đổi nơi kia | Hỏi người dùng chữ mới có chủ ý không. Có thì sửa cả kịch bản lẫn test |
 | Kịch bản ghi "chưa có chức năng X", và increment này vừa làm X | Kịch bản cũ | Cập nhật kịch bản và test, như BR-11 đã làm với TC-E2E-03 bước 6 |
 | Trang 500 hay trang lỗi trắng, sai trạng thái, thiếu dữ liệu, vai trò không có quyền vẫn thấy hoặc bấm được nút | Lỗi ứng dụng | Bước 5d. Không sửa test cho xanh |
-| Tìm có dấu không ra kết quả trên `localdb` dù qua trên Docker | Lỗi ứng dụng (collation, xem `.claude/rules/mybatis.md`) | Bước 5d |
+| Tìm có dấu không ra kết quả | Lỗi ứng dụng (collation, xem `.claude/rules/mybatis.md`) | Bước 5d |
 | Đang ở trang đăng nhập khi lẽ ra đã vào trong | Thường do test: sai tài khoản, quên `login` sau `logout` | Đối chiếu `db/devdata/R__dev_seed.sql` |
-| Đỏ trước khi mở được trang: `Failed to create driver`, `Could not find a valid Docker environment`, Flyway lỗi | Môi trường | Sửa lệnh chạy theo bước 4, không sửa code |
+| Đỏ trước khi mở được trang: `Failed to create driver`, `Connection refused` tới cổng 5433, Flyway lỗi | Môi trường | Sửa lệnh chạy theo bước 4, không sửa code |
 | Cùng code mà lúc xanh lúc đỏ | Test chờ sai cách | Tìm `isVisible()` dùng như boolean, `textContent()`, sleep; thay bằng `assertThat` |
 
 Không bao giờ được làm cho test xanh bằng cách:

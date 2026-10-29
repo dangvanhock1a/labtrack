@@ -10,18 +10,18 @@ Quy tắc riêng từng vùng code nằm ở `.claude/rules/*.md`, tự nạp kh
 - `docs/cau-hoi-lam-ro.md`: mục 1 ghi, cho từng BR, tầng phải chặn và loại test cần có. Mục 2 là 10 câu hỏi chưa có đáp án (ví dụ mã mẫu lấy năm nào khi nhập lùi ngày nhận). Gặp đúng tình huống đó thì hỏi người dùng, đừng tự quyết.
 
 ## Stack — không tự nâng hay hạ version
-Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · Thymeleaf · Bootstrap 5.3.8 (webjar) · Testcontainers
+Java 21 · Spring Boot 4.1.1 · mybatis-spring-boot-starter 4.1.0 · Flyway · Thymeleaf · Bootstrap 5.3.8 (webjar)
 Không dùng H2: mọi test chạy trên PostgreSQL thật.
 
 ## Lệnh
 - `./mvnw -q test` · một lớp `-Dtest=TenLop` · một method `-Dtest='TenLop#tenMethod'` · đầy đủ `./mvnw verify`. Không có linter hay formatter.
 - `./mvnw spring-boot:run` → http://localhost:8080/samples. `/` không có mapping; sau khi đăng nhập, `/` trả 403.
 - Tài khoản demo: 6 tài khoản trong `db/devdata/R__dev_seed.sql` (5 của LT-BRD mục 4 và `duyet2`), mật khẩu `Passw0rd!`.
-- CSDL dev: `docker compose up -d` (PostgreSQL 18, cổng 5433, user/mật khẩu/CSDL `labtrack`; đổi bằng `DB_URL`, `DB_USER`, `DB_PASSWORD`). Có Docker mà không dựng compose: `./mvnw spring-boot:test-run`.
-- Test `@SpringBootTest` dựng PostgreSQL bằng Testcontainers. Không có Docker thì bật profile `localdb` và trỏ sang CSDL test riêng, đừng chạy lên CSDL dev:
-  `$env:DB_URL='jdbc:postgresql://localhost:5433/labtrack_test'; ./mvnw -q test "-Dspring.profiles.active=localdb"`
-  PowerShell 5.1 tách `-D` ở dấu chấm đầu tiên nếu không bọc nháy. Quên profile → `Could not find a valid Docker environment`.
-- E2E (`*IT.java`, gói `e2e`) chỉ chạy ở `./mvnw verify` (failsafe). Một lớp: `-Dit.test=SmokeIT`. `-De2e.channel=msedge` (hoặc `E2E_BROWSER_CHANNEL`) dùng Edge/Chrome đã cài; `-De2e.headed=true` để xem trình duyệt.
+- CSDL: PostgreSQL 18 cài trên máy (không dùng Docker), cổng 5433, user/mật khẩu `labtrack`.
+  - Dev `labtrack`: ứng dụng dùng; đổi bằng `DB_URL`, `DB_USER`, `DB_PASSWORD`.
+  - Test `labtrack_test`: mọi `@SpringBootTest` và E2E dùng; đổi bằng `TEST_DB_URL` (`src/test/resources/config/application.yml`). Đừng trỏ test vào CSDL dev: test đồng thời và E2E commit dữ liệu mà trigger V4 không cho xóa.
+- E2E (`*IT.java`, gói `e2e`) chỉ chạy ở `./mvnw verify` (failsafe). Một lớp: `-Dit.test=SmokeIT`. Mặc định dùng Edge đã cài (`e2e.channel` trong `pom.xml`); đổi bằng `-De2e.channel=chrome`; `-De2e.headed=true` để xem trình duyệt.
+  PowerShell 5.1 tách `-D` ở dấu chấm đầu tiên nếu không bọc nháy: `"-De2e.headed=true"`.
 - Output có `?` thay chữ có dấu là lỗi hiển thị (locale Windows không UTF-8), không phải dữ liệu sai. `.mvn/jvm.config` đã ép UTF-8; chạy `java` tay thì thêm `-Dstdout.encoding=UTF-8`.
 
 ## Kiến trúc — bắt buộc

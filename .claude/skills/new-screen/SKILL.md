@@ -52,7 +52,7 @@ Luật phân quyền (luật khớp đầu tiên quyết định):
      `<choose>` trên tên cột cố định, không dùng `${}`. Tìm theo từ khóa thì escape `\`, `%`, `_` ở service rồi mới
      truyền vào `#{}` (BR-13). Phân trang `LIMIT #{…} OFFSET #{…}`, cỡ trang lấy từ `labtrack.page-size`. Số liệu
      mỗi dòng (ví dụ tiến độ x/y) gộp bằng JOIN hoặc subquery, không gọi lại mapper cho từng dòng (N+1). SQL mới có
-     test tích hợp ở `persistence/*MapperTests` (Testcontainers).
+     test tích hợp ở `persistence/*MapperTests` (PostgreSQL thật, CSDL `labtrack_test`).
    - **Nghiệp vụ + unit test:** controller chỉ gọi service; package `service` không import Spring Security. Unit test
      dựng bằng `new`, mock mapper, `Clock.fixed(…, ZoneId.of("Asia/Ho_Chi_Minh"))`; có ngày giờ thì thêm một case
      sau nửa đêm giờ VN khi UTC còn là hôm trước. Đặt test vào `LabSampleServiceTests` (đăng ký),
@@ -65,8 +65,7 @@ Luật phân quyền (luật khớp đầu tiên quyết định):
 4. **SecurityConfig** khi có URL mới: thêm `requestMatchers(HttpMethod.X, "…")` đứng trước
    `GET /samples, /samples/*`. Thêm case 4 vai trò vào `AccessControlTests` (vai trò không được phép nhận 403), và một
    case POST thiếu CSRF nhận 403. `sec:authorize` trong template phải trùng với luật này.
-5. **Chạy** `./mvnw -q test`. Không có Docker thì chạy với profile `localdb` theo `CLAUDE.md`, trên CSDL
-   `labtrack_test`, không lên CSDL dev. Báo cáo file đã tạo/sửa, số test chạy/đỏ, kèm output lỗi thật.
+5. **Chạy** `./mvnw -q test` (CSDL `labtrack_test`, không lên CSDL dev). Báo cáo file đã tạo/sửa, số test chạy/đỏ, kèm output lỗi thật.
 6. **Đề xuất 1 kịch bản E2E**, chưa viết code. Dùng đúng cột của bảng trong `docs/kich-ban-e2e.md`: Mã TC (số
    `TC-E2E-xx` kế tiếp), Use case · BR, Vai trò, Bước, Kết quả mong đợi (chữ nguyên văn từ template). Ghi locator
    theo thứ tự `getByRole` → `getByLabel` → `getByTestId`, tiền điều kiện dựng qua service (`.claude/rules/e2e.md`).

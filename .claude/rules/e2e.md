@@ -12,7 +12,7 @@ paths:
 - Regex truyền cho Playwright không dùng `Pattern.quote` (RegExp của JavaScript không hiểu `\Q…\E`); escape tay như `actorAt`.
 - Đăng nhập và đăng xuất bằng `login(username)`/`logout()` của lớp cha; tài khoản trong `R__dev_seed.sql`, mật khẩu `Passw0rd!`.
 - Tiền điều kiện dựng qua service (`seedSampleInTesting()`); luồng đầy đủ qua giao diện chỉ nằm ở TC-E2E-03.
-- Trước mỗi test, `DbCleaner` TRUNCATE mọi bảng trừ `app_user`, `test_parameter`, `flyway_schema_history` và tắt tạm trigger USER trong cùng transaction; nó từ chối CSDL không mang tên `test`/`*_test`.
+- Trước mỗi test, `DbCleaner` TRUNCATE mọi bảng trừ `app_user`, `test_parameter`, `flyway_schema_history` và tắt tạm trigger USER trong cùng transaction; nó từ chối CSDL có tên không kết thúc bằng `_test`.
 - Bảng tham chiếu mới → thêm tên vào `NOT IN (…)` của `DbCleaner`.
 - Không đặt `@Transactional` trên lớp E2E: trình duyệt gọi Tomcat thật, nên dữ liệu được commit.
 - Test đỏ: xem ảnh `target/e2e-screenshots/<Lớp>-<method>-end.png` và trace `target/playwright-traces/<Lớp>-<method>.zip` (mở bằng trace.playwright.dev).

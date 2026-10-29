@@ -19,9 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.context.annotation.Import;
-
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 
 /**
  * Trang 403 qua Tomcat thật. Trong {@code @WebMvcTest}, phản hồi 403 không được chuyển sang
@@ -30,7 +27,6 @@ import com.pharmalab.labtrack.TestcontainersConfiguration;
  * người đăng nhập vẫn còn trong security context khi trang lỗi được render.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration.class)
 class ForbiddenPageIntegrationTests {
 
 	private static final Pattern CSRF_TOKEN = Pattern.compile("name=\"_csrf\" value=\"([^\"]+)\"");

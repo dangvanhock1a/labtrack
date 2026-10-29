@@ -22,10 +22,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.persistence.TestParameterMapper;
 
 /**
@@ -34,7 +32,6 @@ import com.pharmalab.labtrack.persistence.TestParameterMapper;
  * (SPEC-004 L1), nên test chỉ đọc trên mẫu nó vừa tạo.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration.class)
 class ResultFlowIntegrationTests {
 
 	private static final Pattern CSRF_TOKEN = Pattern.compile("name=\"_csrf\" value=\"([^\"]+)\"");

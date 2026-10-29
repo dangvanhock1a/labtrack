@@ -10,7 +10,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -18,7 +17,6 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleType;
 import com.pharmalab.labtrack.service.LabSampleService;
@@ -30,7 +28,6 @@ import com.pharmalab.labtrack.service.NewSample;
  * tên ràng buộc, cùng lý do như {@link TestResultConstraintTests}.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
 class LabSampleConstraintTests {
 
@@ -200,8 +197,8 @@ class LabSampleConstraintTests {
 		assertViolates("ck_lab_sample_priority", "UPDATE lab_sample SET priority = 'HIGH' WHERE id = ?", sampleId);
 		assertViolates("ck_lab_sample_priority", "UPDATE lab_sample SET priority = 'urgent' WHERE id = ?", sampleId);
 		assertViolates("ck_lab_sample_priority", "UPDATE lab_sample SET priority = '' WHERE id = ?", sampleId);
-		// NOT NULL không mang tên tự đặt, còn câu báo lỗi đổi theo lc_messages của máy chủ (CSDL localdb có thể
-		// báo tiếng Nhật): nhận diện bằng SQLSTATE 23502 not_null_violation.
+		// NOT NULL không mang tên tự đặt, còn câu báo lỗi đổi theo lc_messages của máy chủ (CSDL labtrack_test trên
+		// máy này báo tiếng Nhật): nhận diện bằng SQLSTATE 23502 not_null_violation.
 		assertRejected("UPDATE lab_sample SET priority = NULL WHERE id = ?", sampleId)
 			.rootCause()
 			.isInstanceOfSatisfying(SQLException.class, e -> assertThat(e.getSQLState()).isEqualTo("23502"));

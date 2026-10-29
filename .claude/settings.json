@@ -14,9 +14,7 @@
     ],
     "ask": [
       "Bash(git push *)",
-      "PowerShell(git push *)",
-      "Bash(docker compose *)",
-      "Bash(docker rm *)"
+      "PowerShell(git push *)"
     ],
     "deny": [
       "Read(./**/.env)",

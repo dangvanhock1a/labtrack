@@ -31,6 +31,7 @@
 		<mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
 		<webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
 		<playwright.version>1.63.0</playwright.version>
+		<e2e.channel>msedge</e2e.channel>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -103,21 +104,6 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-testcontainers</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.testcontainers</groupId>
-			<artifactId>testcontainers-junit-jupiter</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.testcontainers</groupId>
-			<artifactId>testcontainers-postgresql</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
 			<groupId>com.microsoft.playwright</groupId>
 			<artifactId>playwright</artifactId>
 			<version>${playwright.version}</version>
@@ -140,10 +126,17 @@
 					<argLine>-Duser.timezone=UTC</argLine>
 				</configuration>
 			</plugin>
-			<!-- Test E2E (*IT.java) chạy ở ./mvnw verify, không chạy ở ./mvnw test. -->
+			<!-- Test E2E (*IT.java) chạy ở ./mvnw verify, không chạy ở ./mvnw test. Mặc định dùng Edge có sẵn trên
+				 Windows: để Playwright tự tải Chromium thì mỗi lớp E2E treo khoảng 10 phút sau proxy rồi hỏng.
+				 Đổi bằng -De2e.channel=chrome. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<e2e.channel>${e2e.channel}</e2e.channel>
+					</systemPropertyVariables>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>

@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pharmalab.labtrack.TestcontainersConfiguration;
 import com.pharmalab.labtrack.domain.LabSample;
 import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SamplePriority;
@@ -36,7 +35,7 @@ import com.pharmalab.labtrack.persistence.LabSampleMapper;
  * theo UTC sẽ lệch một ngày so với "hôm nay" giờ VN = 2026-10-29.
  */
 @SpringBootTest
-@Import({ TestcontainersConfiguration.class, OverdueSearchIntegrationTests.FixedClockConfig.class })
+@Import(OverdueSearchIntegrationTests.FixedClockConfig.class)
 @Transactional
 class OverdueSearchIntegrationTests {
 
