@@ -461,7 +461,7 @@ class SampleControllerTests {
 		when(sampleService.findById(SAMPLE_ID)).thenReturn(Optional.of(sample));
 
 		assertThat(detailPage()).contains("<dt class=\"col-sm-5\">Bảo quản</dt>")
-			.contains("<dd class=\"col-sm-7\">Mát (2–8 °C)</dd>");
+			.contains("<dd class=\"col-sm-7\" data-testid=\"storage-condition\">Mát (2–8 °C)</dd>");
 	}
 
 	private static final String EXPORT_LIMIT_MESSAGE = "Bộ lọc khớp hơn 10.000 mẫu. Hãy lọc hẹp hơn để xuất CSV.";
