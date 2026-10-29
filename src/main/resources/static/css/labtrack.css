@@ -1,0 +1,736 @@
+/*
+ * Giao diện LabTrack: "nhãn phòng thí nghiệm".
+ *
+ * Màu chỉ dùng khi mang nghĩa: đỏ là hỏng hoặc quá hạn, hổ phách là cần chú ý, xanh lá là đạt. Trạng thái mẫu
+ * (BR-03) vì thế không tô theo màu mà phân biệt bằng vạch tiến trình 3 nấc (.lt-stage-*), để "Hoàn thành" không
+ * còn trùng màu xanh của "Đạt" khi mẫu Không đạt. Lớp .lt-stage-* đặt theo vị trí trong quy trình chứ không theo
+ * tên hằng SampleStatus; ánh xạ hằng → lớp nằm ở fragment statusBadge.
+ *
+ * Phông là phông hệ thống: Bootstrap lấy từ webjar, không lấy gì từ CDN, và máy phòng lab chạy Windows nên có sẵn
+ * Bahnschrift (DIN 1451). Bahnschrift đủ dấu tiếng Việt nhưng thiếu "−" và "≤" (nhãn Đông lạnh); trình duyệt tự
+ * lấy hai ký tự đó từ phông kế tiếp trong danh sách.
+ *
+ * Phần lớn là gán lại biến --bs-* nên markup vẫn dùng lớp Bootstrap như cũ; test so khớp nguyên văn các lớp
+ * text-bg-warning, text-bg-danger, text-bg-primary nên chúng giữ nguyên, chỉ đổi màu ở đây.
+ */
+
+:root {
+	--lt-bench: #EEF1F4;
+	--lt-ink: #1B2330;
+	--lt-methylene: #2D4A97;
+	--lt-amber: #A15C00;
+	--lt-pass: #1D7343;
+	--lt-fail: #B3261E;
+
+	/* Viền khối chỉ để chia vùng; viền ô nhập phải đạt 3:1 (WCAG 1.4.11) nên đậm hơn. */
+	--lt-line: color-mix(in srgb, var(--lt-ink) 14%, #fff);
+	--lt-line-strong: color-mix(in srgb, var(--lt-ink) 55%, #fff);
+	--lt-ink-2: color-mix(in srgb, var(--lt-ink) 68%, #fff);
+	--lt-toolbar: color-mix(in srgb, var(--lt-ink) 6%, var(--lt-bench));
+	--lt-methylene-wash: color-mix(in srgb, var(--lt-methylene) 8%, #fff);
+	--lt-methylene-deep: color-mix(in srgb, var(--lt-methylene) 80%, #000);
+	--lt-pass-wash: color-mix(in srgb, var(--lt-pass) 9%, #fff);
+	--lt-fail-wash: color-mix(in srgb, var(--lt-fail) 7%, #fff);
+	--lt-amber-wash: color-mix(in srgb, var(--lt-amber) 9%, #fff);
+
+	--lt-font-data: Bahnschrift, "DIN Alternate", "DIN 2014", Barlow, "Segoe UI", system-ui, sans-serif;
+	--lt-font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+	color-scheme: light;
+
+	--bs-body-font-family: var(--lt-font-text);
+	--bs-body-color: var(--lt-ink);
+	--bs-body-color-rgb: 27, 35, 48;
+	--bs-body-bg: #fff;
+	--bs-emphasis-color: var(--lt-ink);
+	--bs-emphasis-color-rgb: 27, 35, 48;
+	--bs-secondary-color: var(--lt-ink-2);
+	--bs-secondary-color-rgb: 100, 105, 111;
+	--bs-border-color: var(--lt-line);
+	--bs-border-color-translucent: var(--lt-line);
+	--bs-border-radius: 4px;
+	--bs-border-radius-sm: 3px;
+	--bs-border-radius-lg: 6px;
+
+	--bs-link-color: var(--lt-methylene);
+	--bs-link-color-rgb: 45, 74, 151;
+	--bs-link-hover-color: var(--lt-methylene-deep);
+	--bs-link-hover-color-rgb: 36, 59, 121;
+
+	--bs-primary: var(--lt-methylene);
+	--bs-primary-rgb: 45, 74, 151;
+	--bs-secondary-rgb: 100, 105, 111;
+	--bs-success-rgb: 29, 115, 67;
+	--bs-danger-rgb: 179, 38, 30;
+	--bs-warning-rgb: 161, 92, 0;
+
+	--bs-success-text-emphasis: var(--lt-pass);
+	--bs-success-bg-subtle: var(--lt-pass-wash);
+	--bs-success-border-subtle: color-mix(in srgb, var(--lt-pass) 30%, #fff);
+	--bs-danger-text-emphasis: var(--lt-fail);
+	--bs-danger-bg-subtle: var(--lt-fail-wash);
+	--bs-danger-border-subtle: color-mix(in srgb, var(--lt-fail) 30%, #fff);
+	--bs-warning-text-emphasis: var(--lt-amber);
+	--bs-warning-bg-subtle: var(--lt-amber-wash);
+	--bs-warning-border-subtle: color-mix(in srgb, var(--lt-amber) 30%, #fff);
+
+	--bs-form-invalid-color: var(--lt-fail);
+	--bs-form-invalid-border-color: var(--lt-fail);
+}
+
+/* body vẽ màu mặt bàn trực tiếp: --bs-body-bg phải giữ màu giấy vì ô nhập, bảng, card và modal đều lấy nền từ nó. */
+body {
+	background-color: var(--lt-bench);
+}
+
+main {
+	padding-bottom: 3rem;
+}
+
+h1, h2, .h1, .h2, .h3, .h4, .h5, .h6 {
+	font-family: var(--lt-font-data);
+	font-weight: 600;
+	letter-spacing: .005em;
+	/* Tiêu đề dài của trang 403 xuống dòng ở 360px; balance chia đều hai dòng thay vì để một chữ mồ côi. */
+	text-wrap: balance;
+}
+
+a:focus-visible,
+.lt-rail-stage:focus-visible {
+	outline: 2px solid var(--lt-methylene);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* ---------- Thanh điều hướng ---------- */
+
+.lt-topbar {
+	background-color: #fff;
+	border-bottom: 1px solid var(--lt-line);
+	--bs-navbar-padding-y: .625rem;
+	--bs-navbar-color: var(--lt-ink-2);
+	--bs-navbar-hover-color: var(--lt-methylene);
+	--bs-navbar-brand-color: var(--lt-ink);
+	--bs-navbar-brand-hover-color: var(--lt-ink);
+}
+
+.lt-topbar .nav-link {
+	font-weight: 500;
+}
+
+/* Trang hiện tại đánh dấu bằng aria-current (fragment navbar), nên trình đọc màn hình và mắt nhìn cùng một nguồn. */
+.lt-topbar .nav-link[aria-current="page"] {
+	color: var(--lt-ink);
+	box-shadow: inset 0 -2px 0 var(--lt-methylene);
+}
+
+/* Skip link: ẩn bằng visually-hidden-focusable của Bootstrap, khi nhận focus thì nổi lên góc trên trái. */
+.lt-skip:focus {
+	position: absolute;
+	top: .5rem;
+	left: .5rem;
+	z-index: 1080;
+	padding: .5rem .75rem;
+	color: var(--lt-methylene);
+	background-color: #fff;
+	border: 1px solid var(--lt-line-strong);
+	border-radius: 4px;
+}
+
+.lt-brand {
+	display: inline-flex;
+	align-items: baseline;
+	font-family: var(--lt-font-data);
+	font-weight: 700;
+	letter-spacing: .01em;
+}
+
+.lt-role {
+	margin-left: .375rem;
+	color: var(--lt-ink-2);
+	font-size: .875rem;
+}
+
+.lt-role::before {
+	content: "";
+	display: inline-block;
+	width: 1px;
+	height: .9em;
+	margin-right: .5rem;
+	vertical-align: -.1em;
+	background-color: var(--lt-line-strong);
+}
+
+/* ---------- Vạch tiến trình: nấc đã qua đậm, nấc chưa tới nhạt; logo là cả 3 nấc ---------- */
+
+.lt-stage::before,
+.lt-brand::before {
+	content: "";
+	display: inline-block;
+	flex: none;
+	width: 1.09em;
+	height: .67em;
+	margin-right: .45em;
+	background:
+		linear-gradient(var(--lt-t1), var(--lt-t1)) 0 0 / .25em 100% no-repeat,
+		linear-gradient(var(--lt-t2), var(--lt-t2)) .42em 0 / .25em 100% no-repeat,
+		linear-gradient(var(--lt-t3), var(--lt-t3)) .84em 0 / .25em 100% no-repeat;
+}
+
+.lt-brand {
+	--lt-t1: var(--lt-methylene);
+	--lt-t2: var(--lt-methylene);
+	--lt-t3: var(--lt-methylene);
+}
+
+.lt-stage {
+	--lt-off: color-mix(in srgb, currentColor 30%, transparent);
+	--lt-t1: var(--lt-off);
+	--lt-t2: var(--lt-off);
+	--lt-t3: var(--lt-off);
+}
+
+.lt-stage-1 { --lt-t1: currentColor; }
+.lt-stage-2 { --lt-t1: currentColor; --lt-t2: currentColor; }
+.lt-stage-3 { --lt-t1: currentColor; --lt-t2: currentColor; --lt-t3: currentColor; }
+
+/* Đã hủy không nằm trên đường tiến trình: một vạch ngang thay cho 3 nấc. */
+.lt-stage-x::before {
+	background: linear-gradient(currentColor, currentColor) 0 55% / 100% .12em no-repeat;
+}
+
+/* ---------- Nhãn ---------- */
+
+.badge {
+	--bs-badge-font-size: .75rem;
+	--bs-badge-font-weight: 600;
+	--bs-badge-padding-x: .5em;
+	--bs-badge-padding-y: .25em;
+	--bs-badge-border-radius: 2px;
+	font-family: var(--lt-font-data);
+	line-height: 1.2;
+	letter-spacing: .01em;
+	border: 1px solid transparent;
+}
+
+/* Trạng thái mẫu: rỗng → nền nhạt → viền mực. Không nấc nào đặc màu: phần lớn mẫu trong danh sách đang kiểm
+   nghiệm, nền đặc sẽ thành một cột khối xanh che mất Khẩn và Quá hạn. Hoàn thành viền mực trung tính để nhãn
+   Đạt/Không đạt bên cạnh lên tiếng. lt-stage-2 phải thắng !important của text-bg-primary (lớp giữ cho test). */
+.lt-stage-1 {
+	background-color: #fff;
+	color: var(--lt-methylene);
+	border-color: color-mix(in srgb, var(--lt-methylene) 35%, #fff);
+}
+
+.badge.lt-stage-2 {
+	background-color: color-mix(in srgb, var(--lt-methylene) 13%, #fff) !important;
+	color: var(--lt-methylene-deep) !important;
+	border-color: color-mix(in srgb, var(--lt-methylene) 35%, #fff);
+}
+
+.lt-stage-3 {
+	background-color: #fff;
+	color: var(--lt-ink);
+	border-color: color-mix(in srgb, var(--lt-ink) 40%, #fff);
+}
+
+.lt-stage-x {
+	background-color: transparent;
+	color: var(--lt-ink-2);
+	border: 1px dashed color-mix(in srgb, var(--lt-ink) 35%, #fff);
+}
+
+/* Bootstrap ép chữ đen trên nền warning; hổ phách đậm của LabTrack cần chữ trắng (5,2:1). */
+.badge.text-bg-warning {
+	color: #fff !important;
+}
+
+/* Kết quả Đã duyệt là việc đã xong: chỉ viền, nhạt hơn hẳn Chờ duyệt đang chờ người xử lý. */
+.badge.text-bg-primary:not(.lt-stage) {
+	background-color: #fff !important;
+	color: var(--lt-methylene) !important;
+	border-color: color-mix(in srgb, var(--lt-methylene) 35%, #fff);
+}
+
+.badge.text-bg-secondary {
+	background-color: transparent !important;
+	color: var(--lt-ink-2) !important;
+	border-color: var(--lt-line-strong);
+}
+
+/* Đạt nhẹ, Không đạt đặc: kết quả hỏng phải nổi hơn kết quả đạt. */
+.badge.text-bg-success {
+	background-color: var(--lt-pass-wash) !important;
+	color: var(--lt-pass) !important;
+	border-color: color-mix(in srgb, var(--lt-pass) 32%, #fff);
+}
+
+/* Quá hạn là rủi ro về thời gian, không phải mẫu hỏng: cùng màu đỏ với Không đạt nhưng chỉ viền. */
+.badge.lt-overdue {
+	background-color: #fff !important;
+	color: var(--lt-fail) !important;
+	border-color: var(--lt-fail);
+}
+
+/* Thấp và Bình thường hiện như chữ thường để cột Ưu tiên chỉ còn Khẩn nổi lên. */
+.badge.lt-quiet {
+	padding: 0;
+	background: none;
+	border: 0;
+	color: var(--lt-ink-2);
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: 400;
+	line-height: inherit;
+	letter-spacing: normal;
+}
+
+.lt-spec .badge.lt-quiet {
+	color: inherit;
+}
+
+/* ---------- Chữ dữ liệu ---------- */
+
+.lt-num,
+.lt-code {
+	font-family: var(--lt-font-data);
+	font-variant-numeric: tabular-nums;
+}
+
+.lt-code {
+	font-weight: 600;
+	letter-spacing: .01em;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.lt-code:hover {
+	text-decoration: underline;
+}
+
+/* ---------- Khối, thanh lọc, bảng ---------- */
+
+.lt-panel {
+	background-color: #fff;
+	border: 1px solid var(--lt-line);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.card {
+	--bs-card-border-color: var(--lt-line);
+	--bs-card-border-radius: 6px;
+	--bs-card-inner-border-radius: 5px;
+	--bs-card-cap-bg: transparent;
+	--bs-card-cap-padding-y: .875rem;
+	--bs-card-cap-padding-x: 1.25rem;
+	--bs-card-spacer-x: 1.25rem;
+	--bs-card-spacer-y: 1rem;
+}
+
+.lt-toolbar.row {
+	margin: 0;
+	padding: .5rem .5rem .75rem;
+	background-color: var(--lt-toolbar);
+	border-radius: 6px;
+}
+
+.lt-toolbar .form-label {
+	margin-bottom: .25rem;
+	/* --lt-ink-2 trên nền thanh lọc chỉ đạt 4,3:1, dưới mức AA 4,5:1 cho chữ 14px. */
+	color: var(--lt-ink);
+	font-size: .875rem;
+}
+
+.lt-table {
+	--bs-table-hover-bg: var(--lt-methylene-wash);
+	--bs-table-hover-color: var(--lt-ink);
+	margin-bottom: 0;
+	font-size: .875rem;
+}
+
+.lt-table > :not(caption) > * > * {
+	padding: .625rem .75rem;
+}
+
+.lt-table.table-sm > :not(caption) > * > * {
+	padding: .5rem .5rem;
+}
+
+.lt-table > thead > tr > th {
+	color: var(--lt-ink-2);
+	font-family: var(--lt-font-data);
+	font-stretch: semi-condensed;
+	font-weight: 600;
+	white-space: nowrap;
+	border-bottom-color: var(--lt-line-strong);
+}
+
+.lt-panel > .table-responsive > .lt-table > tbody > tr:last-child > * {
+	border-bottom: 0;
+}
+
+.lt-panel + nav .pagination {
+	margin-top: 1rem;
+}
+
+/* Sổ ghi (lịch sử, nhật ký kết quả): không tiêu đề cột, mốc thời gian đứng đầu dòng. */
+.lt-log {
+	font-size: .875rem;
+}
+
+.lt-log > tbody > tr > * {
+	padding: .5rem .5rem .5rem 0;
+}
+
+.lt-log > tbody > tr:last-child > * {
+	border-bottom: 0;
+}
+
+.lt-spec dt {
+	color: var(--lt-ink-2);
+	font-weight: 400;
+}
+
+.lt-spec dd {
+	margin-bottom: .625rem;
+}
+
+/* ---------- Tổng quan: đường trạng thái và khối đọc số ---------- */
+
+.lt-rail {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: .5rem;
+}
+
+.lt-rail-stage {
+	position: relative;
+	display: block;
+	padding: 1rem 1.25rem 1.125rem;
+	color: var(--lt-ink);
+	text-decoration: none;
+	background-color: #fff;
+	border: 1px solid var(--lt-line);
+	border-radius: 6px;
+	/* Vệt chạm xám mặc định của trình duyệt di động bị thay bằng :active bên dưới. */
+	-webkit-tap-highlight-color: transparent;
+}
+
+.lt-rail-stage:hover {
+	color: var(--lt-ink);
+	background-color: var(--lt-methylene-wash);
+}
+
+.lt-rail-stage:active {
+	background-color: color-mix(in srgb, var(--lt-methylene) 14%, #fff);
+}
+
+.lt-rail-stage:focus-visible {
+	z-index: 2;
+}
+
+.lt-rail-stage:has(.lt-stage-x) {
+	background-color: transparent;
+	border-style: dashed;
+	border-color: color-mix(in srgb, var(--lt-ink) 30%, #fff);
+}
+
+.lt-rail .badge {
+	font-size: .875rem;
+}
+
+.lt-rail-count {
+	margin-top: .5rem;
+	font-family: var(--lt-font-data);
+	font-size: 2.25rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.1;
+}
+
+.lt-rail-stage:has(.lt-stage-x) .lt-rail-count {
+	color: var(--lt-ink-2);
+}
+
+/* Từ md trở lên 3 nấc liền nhau thành một dải, mỗi nấc có mũi nhọn chỉ sang nấc sau; Đã hủy đứng tách ra. */
+@media (min-width: 768px) {
+	.lt-rail {
+		grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, .75fr);
+		gap: 0;
+	}
+
+	.lt-rail-stage {
+		border-radius: 0;
+	}
+
+	.lt-rail-stage:has(.lt-stage-2),
+	.lt-rail-stage:has(.lt-stage-3) {
+		border-left: 0;
+	}
+
+	.lt-rail-stage:has(.lt-stage-1) {
+		border-radius: 6px 0 0 6px;
+	}
+
+	.lt-rail-stage:has(.lt-stage-3) {
+		border-radius: 0 6px 6px 0;
+	}
+
+	.lt-rail-stage:has(.lt-stage-x) {
+		margin-left: 1rem;
+		border-radius: 6px;
+	}
+
+	.lt-rail-stage:has(.lt-stage-1)::after,
+	.lt-rail-stage:has(.lt-stage-2)::after {
+		content: "";
+		position: absolute;
+		z-index: 1;
+		top: 50%;
+		right: -7px;
+		width: 13px;
+		height: 13px;
+		margin-top: -6.5px;
+		background-color: inherit;
+		border-top: 1px solid var(--lt-line);
+		border-right: 1px solid var(--lt-line);
+		transform: rotate(45deg);
+	}
+
+	.lt-rail-stage:has(.lt-stage-2),
+	.lt-rail-stage:has(.lt-stage-3) {
+		padding-left: 1.75rem;
+	}
+}
+
+.lt-readouts {
+	display: grid;
+	background-color: #fff;
+	border: 1px solid var(--lt-line);
+	border-radius: 6px;
+}
+
+.lt-readout {
+	display: block;
+	padding: .875rem 1.25rem 1rem;
+	color: var(--lt-ink);
+	text-decoration: none;
+}
+
+.lt-readout + .lt-readout {
+	border-top: 1px solid var(--lt-line);
+}
+
+a.lt-readout:hover {
+	color: var(--lt-ink);
+	background-color: var(--lt-fail-wash);
+}
+
+.lt-readout-label,
+.lt-readout-note {
+	color: var(--lt-ink-2);
+	font-size: .875rem;
+}
+
+.lt-readout-value {
+	font-family: var(--lt-font-data);
+	font-size: 1.75rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.2;
+}
+
+.lt-readout-alert .lt-readout-value {
+	color: var(--lt-fail);
+}
+
+@media (min-width: 768px) {
+	.lt-readouts {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.lt-readout + .lt-readout {
+		border-top: 0;
+		border-left: 1px solid var(--lt-line);
+	}
+
+	a.lt-readout:first-child {
+		border-radius: 5px 0 0 5px;
+	}
+}
+
+/* ---------- Chi tiết mẫu ---------- */
+
+.lt-code-title {
+	font-size: 1.75rem;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: .01em;
+	line-height: 1.1;
+}
+
+@media (min-width: 576px) {
+	.lt-code-title {
+		font-size: 2.25rem;
+	}
+}
+
+.lt-headline .badge {
+	font-size: .875rem;
+}
+
+.breadcrumb {
+	--bs-breadcrumb-margin-bottom: .75rem;
+	font-size: .875rem;
+}
+
+/* ---------- Trang hẹp: biểu mẫu, đăng nhập, 403 ---------- */
+
+.lt-narrow {
+	max-width: 45rem;
+}
+
+.lt-login,
+.lt-notice {
+	width: calc(100% - 2rem);
+	margin-top: 8vh;
+	padding: 1.75rem 1.5rem;
+	background-color: #fff;
+	border: 1px solid var(--lt-line);
+	border-radius: 6px;
+}
+
+.lt-login {
+	max-width: 26rem;
+}
+
+/* 403 chỉ báo thao tác chưa thực hiện, không phải lỗi dữ liệu: mép hổ phách thay vì đỏ. */
+.lt-notice {
+	border-left: 4px solid var(--lt-amber);
+}
+
+@media (min-width: 576px) {
+	.lt-login,
+	.lt-notice {
+		padding: 2rem;
+	}
+}
+
+/* ---------- Thành phần Bootstrap ---------- */
+
+.btn {
+	--bs-btn-font-weight: 600;
+	--bs-btn-focus-box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--lt-methylene);
+}
+
+.btn-primary {
+	--bs-btn-bg: var(--lt-methylene);
+	--bs-btn-border-color: var(--lt-methylene);
+	--bs-btn-hover-bg: var(--lt-methylene-deep);
+	--bs-btn-hover-border-color: var(--lt-methylene-deep);
+	--bs-btn-active-bg: var(--lt-methylene-deep);
+	--bs-btn-active-border-color: var(--lt-methylene-deep);
+	--bs-btn-disabled-bg: var(--lt-methylene);
+	--bs-btn-disabled-border-color: var(--lt-methylene);
+}
+
+.btn-outline-primary {
+	--bs-btn-color: var(--lt-methylene);
+	--bs-btn-bg: #fff;
+	--bs-btn-border-color: var(--lt-methylene);
+	--bs-btn-hover-bg: var(--lt-methylene);
+	--bs-btn-hover-border-color: var(--lt-methylene);
+	--bs-btn-active-bg: var(--lt-methylene-deep);
+	--bs-btn-active-border-color: var(--lt-methylene-deep);
+	--bs-btn-disabled-color: var(--lt-methylene);
+	--bs-btn-disabled-bg: #fff;
+	--bs-btn-disabled-border-color: var(--lt-methylene);
+}
+
+.btn-outline-secondary {
+	--bs-btn-color: var(--lt-ink);
+	--bs-btn-bg: #fff;
+	--bs-btn-border-color: var(--lt-line-strong);
+	--bs-btn-hover-color: var(--lt-ink);
+	--bs-btn-hover-bg: var(--lt-bench);
+	--bs-btn-hover-border-color: var(--lt-ink-2);
+	--bs-btn-active-color: var(--lt-ink);
+	--bs-btn-active-bg: var(--lt-toolbar);
+	--bs-btn-active-border-color: var(--lt-ink-2);
+}
+
+.btn-success {
+	--bs-btn-bg: var(--lt-pass);
+	--bs-btn-border-color: var(--lt-pass);
+	--bs-btn-hover-bg: color-mix(in srgb, var(--lt-pass) 82%, #000);
+	--bs-btn-hover-border-color: color-mix(in srgb, var(--lt-pass) 82%, #000);
+	--bs-btn-active-bg: color-mix(in srgb, var(--lt-pass) 82%, #000);
+	--bs-btn-active-border-color: color-mix(in srgb, var(--lt-pass) 82%, #000);
+	--bs-btn-disabled-bg: var(--lt-pass);
+	--bs-btn-disabled-border-color: var(--lt-pass);
+}
+
+.btn-danger {
+	--bs-btn-bg: var(--lt-fail);
+	--bs-btn-border-color: var(--lt-fail);
+	--bs-btn-hover-bg: color-mix(in srgb, var(--lt-fail) 82%, #000);
+	--bs-btn-hover-border-color: color-mix(in srgb, var(--lt-fail) 82%, #000);
+	--bs-btn-active-bg: color-mix(in srgb, var(--lt-fail) 82%, #000);
+	--bs-btn-active-border-color: color-mix(in srgb, var(--lt-fail) 82%, #000);
+}
+
+.btn-outline-danger {
+	--bs-btn-color: var(--lt-fail);
+	--bs-btn-bg: #fff;
+	--bs-btn-border-color: var(--lt-fail);
+	--bs-btn-hover-bg: var(--lt-fail);
+	--bs-btn-hover-border-color: var(--lt-fail);
+	--bs-btn-active-bg: color-mix(in srgb, var(--lt-fail) 82%, #000);
+	--bs-btn-active-border-color: color-mix(in srgb, var(--lt-fail) 82%, #000);
+	--bs-btn-disabled-color: var(--lt-fail);
+	--bs-btn-disabled-bg: #fff;
+	--bs-btn-disabled-border-color: var(--lt-fail);
+}
+
+.form-control,
+.form-select {
+	border-color: var(--lt-line-strong);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+	border-color: var(--lt-methylene);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--lt-methylene) 22%, transparent);
+}
+
+.form-check-input {
+	border-color: var(--lt-line-strong);
+}
+
+.form-check-input:checked {
+	background-color: var(--lt-methylene);
+	border-color: var(--lt-methylene);
+}
+
+.input-group-text {
+	border-color: var(--lt-line-strong);
+	font-family: var(--lt-font-data);
+}
+
+.pagination {
+	--bs-pagination-focus-box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--lt-methylene);
+	--bs-pagination-disabled-color: var(--lt-ink-2);
+}
+
+.alert {
+	--bs-alert-border-radius: 4px;
+}
+
+.modal {
+	/* Cuộn trong modal Từ chối trên điện thoại không kéo theo trang chi tiết phía sau. */
+	overscroll-behavior: contain;
+	--bs-modal-border-color: var(--lt-line);
+	--bs-modal-header-border-color: var(--lt-line);
+	--bs-modal-footer-border-color: var(--lt-line);
+}

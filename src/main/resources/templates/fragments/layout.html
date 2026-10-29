@@ -3,30 +3,38 @@
 <head th:fragment="head(title)">
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#ffffff">
 	<title th:text="|${title} · LabTrack|">LabTrack</title>
 	<link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/css/bootstrap.min.css}">
+	<link rel="stylesheet" th:href="@{/css/labtrack.css}">
 </head>
 <body>
 
-<nav th:fragment="navbar" class="navbar navbar-expand bg-primary mb-4" data-bs-theme="dark">
+<!-- current: trang đang mở ('overview', 'samples', 'new'; '' khi không trang nào trong menu), để link đó mang
+	 aria-current. Trang chi tiết truyền '' vì nó không phải trang Danh sách mẫu; vị trí đã có ở breadcrumb. -->
+<nav th:fragment="navbar(current)" class="navbar navbar-expand lt-topbar mb-4" aria-label="Điều hướng chính">
+	<a class="visually-hidden-focusable lt-skip" href="#main">Bỏ qua tới nội dung</a>
 	<div class="container flex-wrap">
-		<a class="navbar-brand" th:href="@{/}">LabTrack</a>
+		<a class="navbar-brand lt-brand" th:href="@{/}" translate="no">LabTrack</a>
 		<!-- Trang đăng nhập và trang lỗi cũng dùng navbar này; khi chưa đăng nhập, principal là chuỗi
 			 "anonymousUser", không có fullName. Vì vậy mọi chỗ đọc principal phải nằm trong khối này.
 			 BR-12: ẩn link chỉ cho dễ dùng, quyền thật do SecurityConfig chặn. -->
 		<th:block sec:authorize="isAuthenticated()">
 			<div class="navbar-nav me-auto">
-				<a class="nav-link" th:href="@{/}">Tổng quan</a>
-				<a class="nav-link" th:href="@{/samples}">Danh sách mẫu</a>
-				<a class="nav-link" th:href="@{/samples/new}" sec:authorize="hasRole('RECEPTIONIST')">Đăng ký mẫu</a>
+				<a class="nav-link" th:href="@{/}"
+				   th:attr="aria-current=${current == 'overview'} ? 'page' : null">Tổng quan</a>
+				<a class="nav-link" th:href="@{/samples}"
+				   th:attr="aria-current=${current == 'samples'} ? 'page' : null">Danh sách mẫu</a>
+				<a class="nav-link" th:href="@{/samples/new}" sec:authorize="hasRole('RECEPTIONIST')"
+				   th:attr="aria-current=${current == 'new'} ? 'page' : null">Đăng ký mẫu</a>
 			</div>
 			<div class="d-flex flex-wrap align-items-center gap-2" th:with="user=${#authentication.principal}">
 				<span class="navbar-text">
 					<span th:text="${user.fullName}">Trần Thị Thu</span>
-					<span class="badge text-bg-light" th:text="${user.role.label}">Tiếp nhận mẫu</span>
+					<span class="lt-role" th:text="${user.role.label}">Tiếp nhận mẫu</span>
 				</span>
 				<form method="post" th:action="@{/logout}">
-					<button type="submit" class="btn btn-sm btn-outline-light">Đăng xuất</button>
+					<button type="submit" class="btn btn-sm btn-outline-secondary">Đăng xuất</button>
 				</form>
 			</div>
 		</th:block>
@@ -40,12 +48,14 @@
 	<div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert" data-testid="flash-error"><span th:text="${error}"></span><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button></div>
 </th:block>
 
-<!-- Nhãn trạng thái mẫu (BR-03): màu đi theo bước trong quy trình, không phải theo mức độ lỗi. -->
+<!-- Nhãn trạng thái mẫu (BR-03): lt-stage-N là nấc thứ N trên vạch tiến trình (labtrack.css), không phải mức độ
+	 lỗi; Hoàn thành không mang màu xanh của Đạt để mẫu Không đạt không hiện một nhãn xanh cạnh nhãn đỏ.
+	 text-bg-primary đứng trước lt-stage vì SampleControllerTests so khớp chuỗi "badge text-bg-primary". -->
 <span th:fragment="statusBadge(status)" class="badge"
-	  th:with="tones=${ {RECEIVED: 'text-bg-info',
-						 IN_TESTING: 'text-bg-primary',
-						 COMPLETED: 'text-bg-success',
-						 CANCELLED: 'text-bg-secondary'} }"
+	  th:with="tones=${ {RECEIVED: 'lt-stage lt-stage-1',
+						 IN_TESTING: 'text-bg-primary lt-stage lt-stage-2',
+						 COMPLETED: 'lt-stage lt-stage-3',
+						 CANCELLED: 'lt-stage lt-stage-x'} }"
 	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Đã tiếp nhận</span>
 
 <!-- Nhãn trạng thái kết quả (BR-08, BR-09). So theo tên hằng ResultStatus: đổi tên hằng phải sửa cả đây. -->
@@ -56,10 +66,11 @@
 	  th:classappend="${tones[status.name()]}" th:text="${status.label}">Chờ duyệt</span>
 
 <!-- Nhãn mức ưu tiên (BR-13): chỉ Khẩn nổi màu; vàng chứ không đỏ, vì đỏ dành cho Không đạt và Quá hạn (BR-14).
+	 Thấp và Bình thường (lt-quiet) hiện như chữ thường, để cả cột không thành một dãy nhãn che mất Khẩn.
 	 So theo tên hằng SamplePriority: đổi tên hằng phải sửa cả đây. -->
 <span th:fragment="priorityBadge(priority)" class="badge"
-	  th:with="tones=${ {LOW: 'text-bg-light border',
-						 NORMAL: 'text-bg-secondary',
+	  th:with="tones=${ {LOW: 'lt-quiet',
+						 NORMAL: 'lt-quiet',
 						 URGENT: 'text-bg-warning'} }"
 	  th:classappend="${tones[priority.name()]}" th:text="${priority.label}">Bình thường</span>
 
@@ -70,10 +81,33 @@
 
 <!-- Nhãn quá hạn (BR-14), dùng chung cho danh sách và chi tiết. Template không tự so ngày: chỉ hiện khi cờ
 	 LabSample.overdue bật, cờ do LabSampleService tính theo ngày của Clock. -->
-<span th:fragment="overdueBadge" class="badge text-bg-danger" data-testid="overdue-badge">Quá hạn</span>
+<span th:fragment="overdueBadge" class="badge text-bg-danger lt-overdue" data-testid="overdue-badge">Quá hạn</span>
 
 <th:block th:fragment="scripts">
 	<script th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>
+	<!-- Chống gửi hai lần: form POST đã đi thì khóa nút gửi, để bấm đúp không đăng ký hai mẫu hay gửi trùng kết quả.
+		 Chỉ khóa nút đang bật (nút đã vô hiệu vì 4 mắt giữ nguyên), mở lại khi trình duyệt khôi phục trang từ bộ
+		 nhớ đệm lúc người dùng bấm Back. Chữ trên nút không đổi: E2E tìm nút theo chữ. -->
+	<script>
+		document.addEventListener('submit', function (event) {
+			var form = event.target;
+			if (event.defaultPrevented || form.method.toLowerCase() !== 'post') {
+				return;
+			}
+			form.querySelectorAll('button[type="submit"]:not(:disabled)').forEach(function (button) {
+				button.disabled = true;
+				button.setAttribute('data-lt-busy', '');
+			});
+		});
+		window.addEventListener('pageshow', function (event) {
+			if (event.persisted) {
+				document.querySelectorAll('[data-lt-busy]').forEach(function (button) {
+					button.disabled = false;
+					button.removeAttribute('data-lt-busy');
+				});
+			}
+		});
+	</script>
 </th:block>
 
 </body>

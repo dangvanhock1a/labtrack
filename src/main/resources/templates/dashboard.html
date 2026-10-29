@@ -2,93 +2,81 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('Tổng quan')}"></head>
 <body>
-<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('overview')}"></nav>
 
-<main class="container">
+<main id="main" class="container">
 	<div th:replace="~{fragments/layout :: flash}"></div>
 
 	<h1 class="h3 mb-3">Tổng quan</h1>
 
-	<!-- BR-15: đủ mọi trạng thái kể cả trạng thái không có mẫu (service đã lấp 0). Mỗi ô mở danh sách đã lọc sẵn. -->
-	<div class="row row-cols-2 row-cols-md-4 g-3 mb-3">
-		<div class="col" th:each="entry : ${overview.statusCounts()}">
-			<a class="card h-100 text-decoration-none" th:href="@{/samples(status=${entry.key})}">
-				<div class="card-body">
-					<span th:replace="~{fragments/layout :: statusBadge(${entry.key})}"></span>
-					<div class="fs-3 fw-semibold" th:data-testid="|status-count-${entry.key}|" th:text="${entry.value}">0</div>
-				</div>
-			</a>
-		</div>
+	<!-- BR-15: đủ mọi trạng thái kể cả trạng thái không có mẫu (service đã lấp 0). Mỗi ô mở danh sách đã lọc sẵn.
+		 Ba bước của BR-03 nối thành một dải theo thứ tự EnumMap của service; Đã hủy tách ra vì là lối thoát khỏi
+		 quy trình (labtrack.css nhận ra nó qua lt-stage-x, không theo vị trí). -->
+	<div class="lt-rail mb-4">
+		<a class="lt-rail-stage" th:each="entry : ${overview.statusCounts()}" th:href="@{/samples(status=${entry.key})}">
+			<span th:replace="~{fragments/layout :: statusBadge(${entry.key})}"></span>
+			<div class="lt-rail-count" th:data-testid="|status-count-${entry.key}|" th:text="${entry.value}">0</div>
+		</a>
 	</div>
 
-	<div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
-		<div class="col">
-			<!-- BR-14: cùng điều kiện với bộ lọc "Quá hạn" của danh sách, nên ô này mở đúng các mẫu đã đếm. -->
-			<a class="card h-100 text-decoration-none border-danger" th:href="@{/samples(overdueOnly=true)}">
-				<div class="card-body">
-					<div class="text-body-secondary small">Quá hạn</div>
-					<div class="fs-3 fw-semibold text-danger" data-testid="overdue-count"
-						 th:text="${overview.overdueCount()}">0</div>
-				</div>
-			</a>
+	<div class="lt-readouts mb-4">
+		<!-- BR-14: cùng điều kiện với bộ lọc "Quá hạn" của danh sách, nên ô này mở đúng các mẫu đã đếm. -->
+		<a class="lt-readout lt-readout-alert" th:href="@{/samples(overdueOnly=true)}">
+			<div class="lt-readout-label">Quá hạn</div>
+			<div class="lt-readout-value" data-testid="overdue-count"
+				 th:text="${overview.overdueCount()}">0</div>
+		</a>
+		<div class="lt-readout">
+			<div class="lt-readout-label">Hoàn thành trong 30 ngày</div>
+			<div class="lt-readout-value" data-testid="completed-count" th:text="${overview.completedCount()}">0</div>
 		</div>
-		<div class="col">
-			<div class="card h-100">
-				<div class="card-body">
-					<div class="text-body-secondary small">Hoàn thành trong 30 ngày</div>
-					<div class="fs-3 fw-semibold" data-testid="completed-count" th:text="${overview.completedCount()}">0</div>
-				</div>
-			</div>
-		</div>
-		<div class="col">
-			<div class="card h-100">
-				<div class="card-body">
-					<div class="text-body-secondary small">TAT trung bình 30 ngày</div>
-					<!-- BR-15: giờ, 1 chữ số thập phân (service đã làm tròn). Dấu chấm thập phân qua toPlainString như mọi số
-						 khác của ứng dụng. Không có mẫu hoàn thành thì "—": 0 giờ đọc thành "trả kết quả ngay" (câu hỏi 3
-						 docs/cau-hoi-lam-ro.md). -->
-					<div class="fs-3 fw-semibold" data-testid="avg-tat"
-						 th:text="${overview.avgTatHours() != null} ? |${overview.avgTatHours().toPlainString()} giờ| : '—'">12.5 giờ</div>
-					<div class="small text-body-secondary" th:if="${overview.avgTatHours() == null}">
-						Chưa có mẫu hoàn thành trong 30 ngày</div>
-				</div>
-			</div>
+		<div class="lt-readout">
+			<div class="lt-readout-label">TAT trung bình 30 ngày</div>
+			<!-- BR-15: giờ, 1 chữ số thập phân (service đã làm tròn). Dấu chấm thập phân qua toPlainString như mọi số
+				 khác của ứng dụng. Không có mẫu hoàn thành thì "—": 0 giờ đọc thành "trả kết quả ngay" (câu hỏi 3
+				 docs/cau-hoi-lam-ro.md). -->
+			<div class="lt-readout-value" data-testid="avg-tat"
+				 th:text="${overview.avgTatHours() != null} ? |${overview.avgTatHours().toPlainString()} giờ| : '—'">12.5 giờ</div>
+			<div class="lt-readout-note" th:if="${overview.avgTatHours() == null}">
+				Chưa có mẫu hoàn thành trong 30 ngày</div>
 		</div>
 	</div>
 
 	<h2 class="h5 mb-1">Mẫu cần chú ý</h2>
 	<p class="small text-body-secondary mb-2">Khẩn hoặc quá hạn, chưa kết thúc; tối đa 10 mẫu, hạn trả sớm nhất trước.</p>
 	<p class="text-body-secondary" th:if="${overview.attention().isEmpty()}">Không có mẫu cần chú ý.</p>
-	<div class="table-responsive" th:unless="${overview.attention().isEmpty()}">
-		<table class="table table-hover align-middle">
-			<thead>
-			<tr>
-				<th scope="col">Mã mẫu</th>
-				<th scope="col">Sản phẩm</th>
-				<th scope="col">Số lô</th>
-				<th scope="col">Ưu tiên</th>
-				<th scope="col" class="text-center">Trạng thái</th>
-				<th scope="col">Hạn trả</th>
-			</tr>
-			</thead>
-			<tbody>
-			<tr th:each="s : ${overview.attention()}" data-testid="attention-row">
-				<td><a th:href="@{/samples/{id}(id=${s.id})}" th:text="${s.code}"></a></td>
-				<td th:text="${s.productName}"></td>
-				<td th:text="${s.batchNo}"></td>
-				<td><span th:replace="~{fragments/layout :: priorityBadge(${s.priority})}"></span></td>
-				<td class="text-center">
-					<span th:replace="~{fragments/layout :: statusBadge(${s.status})}"></span>
-				</td>
-				<td>
-					<span class="text-nowrap" th:text="${@fmt.date(s.dueDate)}">14/10/2026</span>
-					<th:block th:if="${s.overdue}">
-						<span th:replace="~{fragments/layout :: overdueBadge}"></span>
-					</th:block>
-				</td>
-			</tr>
-			</tbody>
-		</table>
+	<div class="lt-panel" th:unless="${overview.attention().isEmpty()}">
+		<div class="table-responsive">
+			<table class="table table-hover align-middle lt-table">
+				<thead>
+				<tr>
+					<th scope="col">Mã mẫu</th>
+					<th scope="col">Sản phẩm</th>
+					<th scope="col">Số lô</th>
+					<th scope="col">Ưu tiên</th>
+					<th scope="col" class="text-center">Trạng thái</th>
+					<th scope="col">Hạn trả</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr th:each="s : ${overview.attention()}" data-testid="attention-row">
+					<td><a class="lt-code" th:href="@{/samples/{id}(id=${s.id})}" th:text="${s.code}"></a></td>
+					<td th:text="${s.productName}"></td>
+					<td class="text-nowrap" th:text="${s.batchNo}"></td>
+					<td><span th:replace="~{fragments/layout :: priorityBadge(${s.priority})}"></span></td>
+					<td class="text-center">
+						<span th:replace="~{fragments/layout :: statusBadge(${s.status})}"></span>
+					</td>
+					<td>
+						<span class="text-nowrap lt-num" th:text="${@fmt.date(s.dueDate)}">14/10/2026</span>
+						<th:block th:if="${s.overdue}">
+							<span th:replace="~{fragments/layout :: overdueBadge}"></span>
+						</th:block>
+					</td>
+				</tr>
+				</tbody>
+			</table>
+		</div>
 	</div>
 </main>
 
