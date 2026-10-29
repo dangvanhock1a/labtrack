@@ -1,11 +1,15 @@
 package com.pharmalab.labtrack.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.OverviewStats;
 import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.SamplePriority;
 import com.pharmalab.labtrack.domain.SampleStatus;
@@ -40,6 +45,14 @@ public class LabSampleService {
 
 	/** Lý do của dòng lịch sử lúc kết luận, nối với nhãn Đạt/Không đạt (BR-04, BR-11). */
 	static final String CONCLUSION_REASON_PREFIX = "Kết luận: ";
+
+	/** BR-15: cửa sổ của số mẫu hoàn thành và TAT trung bình, tính bằng ngày lịch giờ VN, kể cả hôm nay. */
+	static final int OVERVIEW_WINDOW_DAYS = 30;
+
+	/** BR-15: số mẫu tối đa trong bảng "Mẫu cần chú ý". */
+	static final int ATTENTION_LIMIT = 10;
+
+	private static final BigDecimal SECONDS_PER_HOUR = BigDecimal.valueOf(3600);
 
 	private final LabSampleMapper sampleMapper;
 
@@ -134,6 +147,28 @@ public class LabSampleService {
 			return null;
 		}
 		return "%" + keyword.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+	}
+
+	/**
+	 * Số liệu trang Tổng quan (BR-15), ba câu SQL. Cửa sổ 30 ngày là 30 ngày lịch giờ VN tính cả hôm nay, bắt đầu từ
+	 * 00:00 (câu hỏi 3 {@code docs/cau-hoi-lam-ro.md}), nên số liệu không đổi trong suốt một ngày, và "hôm nay" của
+	 * cửa sổ trùng "hôm nay" của quá hạn (BR-14). TAT làm tròn ở đây chứ không trong SQL, để unit test kiểm được cách
+	 * làm tròn.
+	 */
+	public Overview overview() {
+		LocalDate today = LocalDate.now(clock);
+		OffsetDateTime since = today.minusDays(OVERVIEW_WINDOW_DAYS - 1).atStartOfDay(clock.getZone()).toOffsetDateTime();
+		Map<SampleStatus, Long> statusCounts = new EnumMap<>(SampleStatus.class);
+		for (SampleStatus status : SampleStatus.values()) {
+			statusCounts.put(status, 0L);
+		}
+		sampleMapper.countByStatus().forEach(row -> statusCounts.put(row.getStatus(), row.getCount()));
+		OverviewStats stats = sampleMapper.overviewStats(today, since);
+		BigDecimal avgTatHours = (stats.getAvgTatSeconds() != null)
+				? stats.getAvgTatSeconds().divide(SECONDS_PER_HOUR, 1, RoundingMode.HALF_UP) : null;
+		List<LabSample> attention = sampleMapper.findAttention(today, ATTENTION_LIMIT);
+		attention.forEach(sample -> markOverdue(toClockZone(sample), today));
+		return new Overview(statusCounts, stats.getOverdueCount(), stats.getCompletedCount(), avgTatHours, attention);
 	}
 
 	/** Mẫu cho trang chi tiết, kèm cờ quá hạn theo ngày hôm nay của {@link Clock} (BR-14). */

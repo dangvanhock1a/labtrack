@@ -74,7 +74,7 @@ class ForbiddenPageIntegrationTests {
 				"_csrf", token);
 		assertThat(login.statusCode()).isEqualTo(302);
 		assertThat(login.headers().firstValue("Location")).hasValueSatisfying(
-				location -> assertThat(location).endsWith("/samples"));
+				location -> assertThat(URI.create(location).getPath()).isEqualTo("/"));
 
 		HttpResponse<String> response = get("/samples/new");
 

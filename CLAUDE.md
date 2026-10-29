@@ -15,7 +15,7 @@ Không dùng H2: mọi test chạy trên PostgreSQL thật.
 
 ## Lệnh
 - `./mvnw -q test` · một lớp `-Dtest=TenLop` · một method `-Dtest='TenLop#tenMethod'` · đầy đủ `./mvnw verify`. Không có linter hay formatter.
-- `./mvnw spring-boot:run` → http://localhost:8080/samples. `/` không có mapping; sau khi đăng nhập, `/` trả 403.
+- `./mvnw spring-boot:run` → http://localhost:8080/. `/` là trang Tổng quan (BR-15), nơi tới sau khi đăng nhập.
 - Tài khoản demo: 6 tài khoản trong `db/devdata/R__dev_seed.sql` (5 của LT-BRD mục 4 và `duyet2`), mật khẩu `Passw0rd!`.
 - CSDL: PostgreSQL 18 cài trên máy (không dùng Docker), cổng 5433, user/mật khẩu `labtrack`.
   - Dev `labtrack`: ứng dụng dùng; đổi bằng `DB_URL`, `DB_USER`, `DB_PASSWORD`.

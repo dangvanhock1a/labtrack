@@ -26,10 +26,10 @@ class LoginIntegrationTests {
 	private MockMvc mockMvc;
 
 	@Test
-	@DisplayName("TC-BR12-13 Đăng nhập đúng tài khoản demo: vào danh sách mẫu với đúng vai trò, phiên không giữ hash mật khẩu")
+	@DisplayName("TC-BR12-13 Đăng nhập đúng tài khoản demo: vào trang Tổng quan (BR-15) với đúng vai trò, phiên không giữ hash mật khẩu")
 	void validCredentialsSignIn() throws Exception {
 		mockMvc.perform(formLogin().user("tiepnhan").password("Passw0rd!"))
-			.andExpect(redirectedUrl("/samples"))
+			.andExpect(redirectedUrl("/"))
 			.andExpect(authenticated().withUsername("tiepnhan")
 				.withRoles("RECEPTIONIST")
 				.withAuthentication(auth -> assertThat(auth.getPrincipal())

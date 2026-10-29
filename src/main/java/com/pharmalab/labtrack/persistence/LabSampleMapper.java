@@ -1,6 +1,7 @@
 package com.pharmalab.labtrack.persistence;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,8 +9,10 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import com.pharmalab.labtrack.domain.LabSample;
+import com.pharmalab.labtrack.domain.OverviewStats;
 import com.pharmalab.labtrack.domain.SampleFilter;
 import com.pharmalab.labtrack.domain.StatusChange;
+import com.pharmalab.labtrack.domain.StatusCount;
 import com.pharmalab.labtrack.domain.Verdict;
 
 @Mapper
@@ -42,6 +45,24 @@ public interface LabSampleMapper {
 	 */
 	List<LabSample> search(@Param("filter") SampleFilter filter, @Param("keyword") String keyword,
 			@Param("today") LocalDate today, @Param("limit") int limit, @Param("offset") int offset);
+
+	/**
+	 * Số mẫu theo trạng thái (BR-15). Chỉ có dòng cho trạng thái đang có mẫu; trạng thái thêm vào {@code SampleStatus}
+	 * sau này được đếm mà không phải sửa câu SQL.
+	 */
+	List<StatusCount> countByStatus();
+
+	/**
+	 * Số mẫu quá hạn theo {@code today} (BR-14), số mẫu hoàn thành từ {@code since} và TAT trung bình của chúng
+	 * (BR-15), trong một câu. Hai mốc do service tính theo {@code Clock}, cùng lý do với {@link #countSearch}.
+	 */
+	OverviewStats overviewStats(@Param("today") LocalDate today, @Param("since") OffsetDateTime since);
+
+	/**
+	 * Tối đa {@code limit} mẫu cần chú ý (BR-15): chưa kết thúc, và Khẩn hoặc quá hạn theo {@code today} (BR-14). Hạn
+	 * trả sớm nhất trước; cùng hạn thì Khẩn trước, rồi nhận sớm trước.
+	 */
+	List<LabSample> findAttention(@Param("today") LocalDate today, @Param("limit") int limit);
 
 	/**
 	 * Đổi trạng thái nếu mẫu vẫn còn ở {@code change.fromStatus()} (BR-03). Trả về số dòng được
